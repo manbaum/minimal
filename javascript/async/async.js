@@ -1,12 +1,31 @@
 
 "use strict"
 
+var GeneratorFunction = (function*(){}).constructor;
+
 module.exports = function(genF, context) {
+	if (!genF || genF.constructor !== GeneratorFunction) {
+		throw new TypeError("genF should be GeneratorFunction");
+	}
 	return function() {
-		return new Promise(function(resolve, reject) {			
-			let toolbox = { return: resolve, throw: reject };
-			let args = [toolbox, ...arguments];
-			let g = genF.apply(context, args);
+		let args = [...arguments];
+		return new Promise(function(resolve, reject) {
+			let done = false;
+			let toolbox = {
+				return: function(value) {
+					if (!done) {
+						done = true;
+						resolve(value);
+					}
+				},
+				throw: function(error) {
+					if (!done) {
+						done = true;
+						reject(error);
+					}
+				}
+			};
+			let g = genF.apply(context, [toolbox, ...args]);
 			let status = {};
 			let next = function(value) {
 				try {
@@ -18,21 +37,23 @@ module.exports = function(genF, context) {
 			};
 			let recover = function(error) {
 				try {
-					status = g.throw(value);
+					status = g.throw(error);
 					process.nextTick(run);
 				} catch (error) {
-					reject(error);
+					toolbox.throw(error);
 				}
 			};
 			let run = function() {
-				var apply = status.done ? resolve : next;
-				if (status.value && status.value.constructor === Promise) {
-					status.value.then(apply, status.done ? reject : recover);
-				} else {
-					apply(status.value);
+				if (!done) {
+					let apply = status.done ? toolbox.return : next;
+					if (status.value && status.value.constructor === Promise) {
+						status.value.then(apply, status.done ? toolbox.throw : recover);
+					} else {
+						apply(status.value);
+					}
 				}
 			};
-			process.nextTick(run);
+			next();
 		});
 	};
 };
