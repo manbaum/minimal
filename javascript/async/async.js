@@ -1,9 +1,116 @@
 
 "use strict"
 
-var GeneratorFunction = (function*(){}).constructor;
+const isFunction = function(f) {
+	return f != null && f.constructor === Function;
+};
+const GeneratorFunction = (function*(){}).constructor;
+const isGeneratorFunction = function(f) {
+	return f != null && f.constructor === GeneratorFunction;
+};
+const defer = function(f, context, time_delay) {
+	time_delay = Number(time_delay);
+	return function() {
+		let args = [...arguments];
+		let work = function() {
+			f.apply(context, args);
+		};
+		if (time_delay > 0) {
+			setTimeout(work, time_delay);
+		} else {
+			process.nextTick(work);
+		}
+	};
+};
 
-var create = function(genF, context, args, h) {
+const convert_f2c = exports.convert_f2c = function(funF, context) {
+	return function() {
+		let args = [...arguments];
+		let last = args.splice[args.length - 1, 1];
+		let callback = isFunction(last[0]) ? defer(last[0]) : null;
+		try {
+			let value = funF.apply(context, args);
+			if (callback) callback(null, value);
+		} catch (error) {
+			if (callback) callback(error);
+		}
+	};
+};
+const convert_p2c = exports.convert_p2c = function(funP, context, scatterArray) {
+	return function() {
+		let args = [...arguments];
+		let last = args.splice[args.length - 1, 1];
+		let callback = isFunction(last[0]) ? defer(last[0]) : null;
+		try {
+			funP.apply(context, args).then(function(value) {
+				if (callback) {
+					if (scatterArray && Array.isArray(value)) {
+						value.unshift(null);
+						callback.apply(null, value);
+					} else {
+						callback(null, value);
+					}
+				}
+			}, function(error) {
+				if (callback) callback(error);
+			});
+		} catch (error) {
+			if (callback) callback(error);
+		}
+	};
+};
+const convert_f2p = exports.convert_f2p = function(funF, context) {
+	return function() {
+		let args = [...arguments];
+		return new Promise(function(resolve, reject) {
+			resolve(funF.apply(context, args));
+		});		
+	};
+};
+const convert_c2p = exports.convert_c2p = function(funC, context, gatherArray) {
+	return function() {
+		let args = [...arguments];
+		return new Promise(function(resolve, reject) {
+			funC.apply(context, [...args, function(error, value) {
+				if (error) {
+					reject(error);
+				} else if (gatherArray) {
+					let array = [...arguments];
+					array.shift();
+					resolve(array);
+				} else {
+					resolve(value);
+				}
+			}]);
+		});
+	};
+};
+
+const callcc_c = exports.callcc_c = function(lambdaF, context, callback) {
+	let called = false;
+	let cc = function() {
+		called = true;
+		defer(callback).apply(null, arguments);
+	};
+	let dcallback = function() {
+		if (!called) defer(callback).apply(null, arguments);
+	};
+	try {
+		dcallback(null, lambdaF.call(context, cc));
+	} catch (error) {
+		dcallback(error);
+	}
+};
+const callcc_p = exports.callcc_p = function(lambdaF, context) {
+	return new Promise(function(resolve, reject) {
+		resolve(lambdaF.call(context, function(error, value) {
+			if (error) reject(error);
+			else resolve(value);
+		}));
+	});
+};
+
+const create = function(funG, context, args, h) {
 	return function(resolve, reject) {
 		let done = false;
 		let running = false;
@@ -30,7 +137,7 @@ var create = function(genF, context, args, h) {
 			return h;
 		};
 
-		let g = genF.apply(context, args);
+		let g = funG.apply(context, args);
 		let status = {};
 		let next = function(value) {
 			try {
@@ -62,9 +169,8 @@ var create = function(genF, context, args, h) {
 		};
 	};
 };
-
-var make_task = function(genF, context) {
-	if (!genF || genF.constructor !== GeneratorFunction) {
+const make_task = exports.task = function(genF, context) {
+	if (!isGeneratorFunction(genF)) {
 		throw new TypeError("genF should be GeneratorFunction");
 	}
 	return function() {
@@ -76,13 +182,9 @@ var make_task = function(genF, context) {
 		return handle;
 	};
 };
-
-var make_async = function(genF, context) {
+const make_async = exports.async = function(genF, context) {
 	let task = make_task(genF, context);
 	return function() {
 		return task.apply(null, arguments).run().promise();
 	};
 };
-
-exports.task = make_task;
-exports.async = make_async;
