@@ -1,7 +1,8 @@
 
 "use strict"
 
-var async = require("./async");
+var task = require("./async").task;
+var async = require("./async").async;
 
 var print = function() {
 	[...arguments].forEach(function(v) {
@@ -30,7 +31,7 @@ var promised_error = function(message) {
 	return Promise.reject(new Error(message));
 };
 
-var test = async(function*(toolbox, a, b, c, d) {
+var test = function*(a, b, c, d) {
 	print(`--- test begin ---`);
 
 	let va = yield immediate_value(a);
@@ -40,11 +41,11 @@ var test = async(function*(toolbox, a, b, c, d) {
 		let vb = yield immediate_error(b);
 	} catch (e) {
 		if (e.message == "good") {
-			toolbox.return(`${e.message} and bye!!`);
+			return `${e.message} and bye!!`;
 		} else if (e.message == "bad") {
 			let ne = new Error(`${e.message} and bye!!`);
 			ne.cause = e;
-			toolbox.throw(ne);
+			throw ne;
 		} else {
 			print(`vb's error is ${e.message}`);
 		}
@@ -62,11 +63,11 @@ var test = async(function*(toolbox, a, b, c, d) {
 	print(`--- test end ---`);
 
 	return "bye!!";
-});
+};
 
-test("ok 1", "error 2", "ok 3", "error 4")
+async(test)("ok 1", "error 2", "ok 3", "error 4")
 .then(print, print)
-.then(() => test("ok 1", "good"))
+.then(() => task(test)("ok 1", "good").run().promise())
 .then(print, print)
-.then(() => test("ok 1", "bad"))
+.then(() => task(test)("ok 1", "bad").run().promise())
 .then(print, print);
