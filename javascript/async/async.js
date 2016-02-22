@@ -86,28 +86,18 @@ const convert_c2p = exports.convert_c2p = function(funC, context, gatherArray) {
 	};
 };
 
-const callcc_c = exports.callcc_c = function(lambdaF, context, callback) {
+const callcc = exports.callcc = function(lambdaF, context, callback) {
 	let called = false;
 	let cc = function() {
 		called = true;
 		defer(callback).apply(null, arguments);
 	};
-	let dcallback = function() {
-		if (!called) defer(callback).apply(null, arguments);
-	};
 	try {
-		dcallback(null, lambdaF.call(context, cc));
+		let value = lambdaF.call(context, cc);
+		if (!called) defer(callback)(null, value);
 	} catch (error) {
-		dcallback(error);
+		if (!called) defer(callback)(error);
 	}
-};
-const callcc_p = exports.callcc_p = function(lambdaF, context) {
-	return new Promise(function(resolve, reject) {
-		resolve(lambdaF.call(context, function(error, value) {
-			if (error) reject(error);
-			else resolve(value);
-		}));
-	});
 };
 
 const create = function(funG, context, args, h) {
