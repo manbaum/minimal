@@ -3,31 +3,31 @@
 
 var GeneratorFunction = (function*(){}).constructor;
 
-var create = function(genF, context, args, r) {
+var create = function(genF, context, args, h) {
 	return function(resolve, reject) {
 		let done = false;
 		let running = false;
-		r.is_done = function() {
+		h.is_done = function() {
 			return done;
 		};
-		r.is_running = function() {
+		h.is_running = function() {
 			return running;
 		};
-		r.return = function(value) {
+		h.return = function(value) {
 			if (!done) {
 				done = true;
 				running = false;
 				resolve(value);
 			}
-			return r;
+			return h;
 		};
-		r.throw = function(error) {
+		h.throw = function(error) {
 			if (!done) {
 				done = true;
 				running = false;
 				reject(error);
 			}
-			return r;
+			return h;
 		};
 
 		let g = genF.apply(context, args);
@@ -35,7 +35,7 @@ var create = function(genF, context, args, r) {
 		let next = function(value) {
 			try {
 				status = g.next(value);
-				process.nextTick(r.run);
+				process.nextTick(h.run);
 			} catch (error) {
 				recover(error);
 			}
@@ -43,22 +43,22 @@ var create = function(genF, context, args, r) {
 		let recover = function(error) {
 			try {
 				status = g.throw(error);
-				process.nextTick(r.run);
+				process.nextTick(h.run);
 			} catch (error) {
-				r.throw(error);
+				h.throw(error);
 			}
 		};
-		r.run = function() {
+		h.run = function() {
 			if (!done) {
 				if (!running) running = true;
-				let apply = status.done ? r.return : next;
+				let apply = status.done ? h.return : next;
 				if (status.value && status.value.constructor === Promise) {
-					status.value.then(apply, status.done ? r.throw : recover);
+					status.value.then(apply, status.done ? h.throw : recover);
 				} else {
 					apply(status.value);
 				}
 			}
-			return r;
+			return h;
 		};
 	};
 };
@@ -68,13 +68,12 @@ var make_task = function(genF, context) {
 		throw new TypeError("genF should be GeneratorFunction");
 	}
 	return function() {
-		let args = [...arguments];
-		let r = {};
-		let promise = new Promise(create(genF, context, args, r));
-		r.promise = function() {
+		let handle = {};
+		let promise = new Promise(create(genF, context, arguments, handle));
+		handle.promise = function() {
 			return promise;
 		};
-		return r;
+		return handle;
 	};
 };
 
