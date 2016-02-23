@@ -177,25 +177,22 @@ var use_callcc = function(f) {
 	let code = "(" + f.toString() + ")";
 	console.log(code);
 	let ast = u2.parse(code);
-	let new_ast = do_rewrite(ast);
+	let new_ast = do_rewrite(0, ast);
 	let new_code = new_ast.print_to_string({ beautify: true });
 	console.log(new_code);
 	return eval(new_code);
 };
 
-var do_rewrite = function(ast) {
+var do_rewrite = function(l, ast) {
 	return ast.transform(new u2.TreeTransformer(function(node) {
 		if (node instanceof u2.AST_Function) {
-			return new u2.AST_Function({
-				name: node.name,
-				argnames: node.argnames,
-				body: rewrite_function_body(node.body)
-			});
+			node.body = rewrite_function_body(l, node.body);
+			return node;
 		}
 	}));
 };
 
-var rewrite_function_body = function(body) {
+var rewrite_function_body = function(l, body) {
 	let new_body = [];
 	let var_defs = [];
 	for (let i = 0; i < body.length; i++) {
@@ -213,18 +210,20 @@ var rewrite_function_body = function(body) {
 			new_body.push(st);
 		}
 	}
-	if (var_defs.length) new_body.unshift(new u2.AST_Var({ definitions: var_defs }));
-	return find_and_rewrite_callcc(new_body);
+	if (var_defs.length) {
+		new_body.unshift(new u2.AST_Var({ definitions: var_defs }));
+	}
+	return find_and_rewrite_callcc(l, new_body);
 };
 
-var find_and_rewrite_callcc = function(body) {
+var find_and_rewrite_callcc = function(l, body) {
 	let new_body = [];
 	for (let i = 0; i < body.length; i++) {
 		let st = body[i];
-		let callccs = find_callcc(st);
+		let callccs = find_callcc(l, st);
 		if (callccs.length) {
-			let rest = body.slice(i + 1);
-			let new_st = rewrite_callcc(st, callccs, rest);
+			let rest = rewrite_function_body(l + 1, body.slice(i + 1));
+			let new_st = rewrite_callcc(l, st, callccs, rest);
 			new_body.push(new_st);
 			break;
 		} else {
@@ -234,39 +233,34 @@ var find_and_rewrite_callcc = function(body) {
 	return new_body;
 };
 
-var find_callcc = function(st) {
+var find_callcc = function(l, st) {
 	let callccs = [];
 	st.walk(new u2.TreeWalker(function(node) {
 		if (node instanceof u2.AST_Function) {
 			return true;
-		} else if (node instanceof u2.AST_Call) {
-			let name = node.expression.name;
-			if (name == "callcc" || name == "callcc4c") {
-				callccs.push(node);
-			}
+		} else if (node instanceof u2.AST_Call && node.expression.name == "callcc") {
+			callccs.push(node);
 		}
 	}));
 	return callccs;
 };
 
-var rewrite_callcc = function(st, callccs, rest) {
+var make_name = function(l, i, type) {
+	return new u2.AST_SymbolVar({ name: "$" + l + type + i + "$" });
+};
+
+var rewrite_callcc = function(l, st, callccs, rest) {
 	let new_st, last, cps;
 	callccs.forEach(function(c, i) {
-		let lambda = new u2.AST_Function({
-			name: c.args[0].name,
-			argnames: c.args[0].argnames,
-			body: rewrite_function_body(c.args[0].body)
-		});
-		let context = c.args[1] ? c.args[1] : new u2.AST_Null();
-		let argnames = [
-			new u2.AST_SymbolVar({ name: "$error" + i + "$" }),
-			new u2.AST_SymbolVar({ name: "$value" + i + "$" })
-		];
+		let lambda = do_rewrite(l, c.args[0]);
+		let cc_name = c.args[0].argnames[0];
+		let context = c.args[1] ? do_rewrite(l, c.args[1]) : new u2.AST_Null();
+		let argnames = [ make_name(l, i, "error"), make_name(l, i, "value") ];
 		if (!new_st) {
-			last = cps = rewrite_return_and_throw(new u2.AST_Function({
+			last = cps = new u2.AST_Function({
 				argnames: argnames,
-				body: rewrite_function_body(add_rewrited_statement(rest, st, i))
-			}));
+				body: rewrite_statement(l, i, st, rest, cc_name)
+			});
 			new_st = new u2.AST_Call({
 				expression: c.expression,
 				args: [lambda, context, cps]
@@ -276,63 +270,58 @@ var rewrite_callcc = function(st, callccs, rest) {
 				argnames: argnames,
 				body: last.body
 			});
-			let var_name = new u2.AST_SymbolVar({ name: "$error" + (i - 1) + "$" });
-			last.body = [
-				new u2.AST_If({
-					condition: var_name,
-					body: new u2.AST_Throw({ value: var_name })
-				}),
-				new u2.AST_Call({
+			let var_name = make_name(l, i - 1, "error");
+			last.body = rewrite_return_and_throw(l, i, [new u2.AST_If({
+				condition: var_name,
+				body: new u2.AST_Throw({ value: var_name }),
+				alternative: new u2.AST_Call({
 					expression: c.expression,
 					args: [lambda, context, cps]
 				})
-			];
+			})], cc_name);
 			last = cps;
 		}
 	});
 	return new_st;
 };
 
-var add_rewrited_statement = function(body, st, j) {
-	let  i = 0;
+var rewrite_statement = function(l, i, st, body, cc_name) {
+	let  j = 0;
 	body.unshift(st.transform(new u2.TreeTransformer(function(node) {
-		if (node instanceof u2.AST_Call) {
-			let name = node.expression.name;
-			if (name == "callcc" || name == "callcc4c") {
-				return new u2.AST_SymbolVar({ name: "$value" + (i++) + "$" });
-			}
+		if (node instanceof u2.AST_Call && node.expression.name == "callcc") {
+			return make_name(l, j++, "value");
 		}
 	})));
-	var var_name = new u2.AST_SymbolVar({ name: "$error" + j + "$" });
-	body.unshift(new u2.AST_If({
+	let var_name = make_name(l, i, "error");
+	let new_st = new u2.AST_If({
 		condition: var_name,
-		body: new u2.AST_Throw({ value: var_name })
-	}));
-	return body;
+		body: new u2.AST_Throw({ value: var_name }),
+		alternative: new u2.AST_BlockStatement({ body: body })
+	});
+	return rewrite_return_and_throw(l, i, [new_st], cc_name);
 };
 
-var rewrite_return_and_throw = function(cc) {
-	return cc.transform(new u2.TreeTransformer(function(node) {
-		if (node != cc && node instanceof u2.AST_Function) {
-			return node;
-		} else if (node instanceof u2.AST_Return) {
-			node.value = new u2.AST_Call({
-				expression: new u2.AST_SymbolVar({ name: "cc" }),
-				args:[
-					new u2.AST_Null(),
-					node.value
-				]
-			});
-			return node;
-		} else if (node instanceof u2.AST_Throw) {
-			return new u2.AST_Return({
-				value: new u2.AST_Call({
-					expression: new u2.AST_SymbolVar({ name: "cc" }),
-					args:[node.value]
-				})
-			});
-		}
-	}));
+var rewrite_return_and_throw = function(l, i, body, cc_name) {
+	return body.map(function(st) {
+		return st.transform(new u2.TreeTransformer(function(node) {
+			if (node instanceof u2.AST_Function) {
+				return node;
+			} else if (node instanceof u2.AST_Return) {
+				node.value = new u2.AST_Call({
+					expression: cc_name,
+					args:[ new u2.AST_Null(), node.value ]
+				});
+				return node;
+			} else if (node instanceof u2.AST_Throw) {
+				return new u2.AST_Return({
+					value: new u2.AST_Call({
+						expression: cc_name,
+						args:[node.value]
+					})
+				});
+			}
+		}));
+	});
 };
 
 var _test2 = function() {
@@ -343,6 +332,7 @@ var _test2 = function() {
 	}) + callcc(function(cc) {
 		return 5;
 	});
+	console.log(new Error().stack);
 	print("a = " + a);
 	var b = callcc(function(cc) {
 		var f = 6;

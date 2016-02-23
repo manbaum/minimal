@@ -89,9 +89,9 @@ const callcc = exports.callcc = function(lambdaF, context, cps) {
 	};
 	try {
 		let value = lambdaF.call(context, cc);
-		if (!called) defer(cps)(null, value);
+		if (!called) cps(null, value);
 	} catch (error) {
-		if (!called) defer(cps)(error);
+		if (!called) cps(error);
 	}
 };
 const callcc4c = exports.callcc4c = function(lambdaC, context, cps) {
