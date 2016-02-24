@@ -81,7 +81,7 @@ const c2p = convert.c2p = function(funC, context, gatherArray) {
 	};
 };
 
-const callcc = exports.callcc = function(lambdaF, context, cps) {
+const callcc_c4f = exports.callcc = function(lambdaF, context, cps) {
 	let called = false;
 	let cc = function() {
 		called = true;
@@ -94,6 +94,6 @@ const callcc = exports.callcc = function(lambdaF, context, cps) {
 		if (!called) cps(error);
 	}
 };
-const callcc4c = exports.callcc4c = function(lambdaC, context, cps) {
+const callcc_c4c = exports.callcc4c = function(lambdaC, context, cps) {
 	lambdaC.call(context, defer(cps), cps);
 };

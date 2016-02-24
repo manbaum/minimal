@@ -2,7 +2,9 @@
 "use strict"
 
 var u2 = require("uglify-js");
-var callcc = require("./callcc").callcc;
+var _callcc = require("./callcc");
+var callcc = _callcc.callcc;
+var c2p = _callcc.c2p;
 
 var find_first_function = function(ast) {
 	var found = null;
@@ -252,14 +254,13 @@ var make_name = function(l, i, type) {
 var rewrite_callcc = function(l, st, callccs, rest) {
 	let new_st, last, cps;
 	callccs.forEach(function(c, i) {
-		let lambda = do_rewrite(l, c.args[0]);
-		let cc_name = c.args[0].argnames[0];
-		let context = c.args[1] ? do_rewrite(l, c.args[1]) : new u2.AST_Null();
+		let lambda = do_rewrite(l, rewrite_return_and_throw(l, i, c.args[0]));
+		let context = c.args[1] ? c.args[1] : new u2.AST_Null();
 		let argnames = [ make_name(l, i, "error"), make_name(l, i, "value") ];
 		if (!new_st) {
 			last = cps = new u2.AST_Function({
 				argnames: argnames,
-				body: rewrite_statement(l, i, st, rest, cc_name)
+				body: rewrite_statement(l, i, st, rest, c.args[0].argnames[0])
 			});
 			new_st = new u2.AST_Call({
 				expression: c.expression,
@@ -301,27 +302,25 @@ var rewrite_statement = function(l, i, st, body, cc_name) {
 	return rewrite_return_and_throw(l, i, [new_st], cc_name);
 };
 
-var rewrite_return_and_throw = function(l, i, body, cc_name) {
-	return body.map(function(st) {
-		return st.transform(new u2.TreeTransformer(function(node) {
-			if (node instanceof u2.AST_Function) {
-				return node;
-			} else if (node instanceof u2.AST_Return) {
-				node.value = new u2.AST_Call({
-					expression: cc_name,
-					args:[ new u2.AST_Null(), node.value ]
-				});
-				return node;
-			} else if (node instanceof u2.AST_Throw) {
-				return new u2.AST_Return({
-					value: new u2.AST_Call({
-						expression: cc_name,
-						args:[node.value]
-					})
-				});
-			}
-		}));
-	});
+var rewrite_return_and_throw = function(l, i, lambda) {
+	return lambda.transform(new u2.TreeTransformer(function(node) {
+		if (node instanceof u2.AST_Function) {
+			return node;
+		} else if (node instanceof u2.AST_Return) {
+			node.value = new u2.AST_Call({
+				expression: lambda.argnames[0],
+				args:[ new u2.AST_Null(), node.value ]
+			});
+			return node;
+		} else if (node instanceof u2.AST_Throw) {
+			return new u2.AST_Return({
+				value: new u2.AST_Call({
+					expression: lambda.argnames[0],
+					args:[node.value]
+				})
+			});
+		}
+	}));
 };
 
 var _test2 = function() {
@@ -346,28 +345,119 @@ var _test2 = function() {
 	});
 	print("x = " + x);
 	if (x < 5) k(null, x + 1);
-};
-var __test2 = function() {
-	callcc(function(cc) {
-		return callcc(function(cc) {
-			return 5;
+	var y = callcc(function(cc) {
+		(function(callback) {
+			// callback(5);
+			throw new Error("gaga!");
+		})(function(value) {
+			cc(value);
 		});
-	}, null, function(e0, v0) {
-		callcc(function(cc) {
-			return 5;
-		}, null, function(e1, v1) {
-			var a = v0 + v1;
+	});
+};
+
+
+var _test2_cpsify = function(cps) {
+	try {
+		cps(null, (function() {
+			var a = callcc(function(cc, cps) {
+				try {
+					cps(null, (function(cc) {
+						return callcc(function(cc, cps) {
+							try {
+								cps(null, (function(cc) {
+									return 5;
+								})(cc));
+							} catch (error) {
+								cps(error);
+							}
+						});
+					})(cc));
+				} catch (error) {
+					cps(error);
+				}
+			}) + callcc(function(cc, cps) {
+				try {
+					cps(null, (function(cc) {
+						return 5;
+					})(cc));
+				} catch (error) {
+					cps(error);
+				}
+			});
+			console.log(new Error().stack);
 			print("a = " + a);
-			var b = callcc(function(cc) {
-				var f = 6;
-				cc(null, f);
+			var b = callcc(function(cc, cps) {
+				try {
+					cps(null, (function(cc) {
+						var f = 6;
+						cc(null, f);
+					})(cc));
+				} catch (error) {
+					cps(error);
+				}
 			});
 			print("b = " + b);
 			var k;
-			var x = callcc(function(cc) {
+			var x = callcc(function(cc, cps) {
+				try {
+					cps(null, (function(cc) {
+						k = cc;
+						return 0;
+					})(cc));
+				} catch (error) {
+					cps(error);
+				}
+			});
+			print("x = " + x);
+			if (x < 5) k(null, x + 1);
+			var y = callcc(function(cc, cps) {
+				try {
+					cps(null, (function(cc) {
+						(function(callback) {
+							// callback(5);
+							throw new Error("gaga!");
+						})(function(value) {
+							cc(value);
+						});
+					})(cc));
+				} catch (error) {
+					cps(error);
+				}
+			});
+		})(cps));
+	} catch (error) {
+		cps(error);
+	}
+};
+var _test2_callccify = function(cps) {
+	callcc4c(function(cc, cps) {
+		try {
+			cps(null, (function(cc, cps) {
+				function(cc) {
+				return callcc4c(f2c(function(cc) {
+					return 5;
+				}));
+			})(cc));
+		} catch (error) {
+			cps(error);
+		}
+	}), null, function(e0, v0) {
+		callcc4c(f2c(function(cc) {
+			return 5;
+		}), null, function(e1, v1) {
+			var a = v0 + v1;
+			console.log(new Error().stack);
+			print("a = " + a);
+			var b = callcc(f2c(function(cc) {
+				var f = 6;
+				cc(null, f);
+			}));
+			print("b = " + b);
+			var k;
+			var x = callcc(f2c(function(cc) {
 				k = cc;
 				return 0;
-			});
+			}));
 			print("x = " + x);
 			if (x < 5) k(null, x + 1);
 		});
