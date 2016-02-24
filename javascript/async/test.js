@@ -72,4 +72,3 @@ async(test)("ok 1", "error 2", "ok 3", "error 4")
 .then(print, print)
 .then(() => task(test)("ok 1", "bad").run().promise())
 .then(print, print);
-

@@ -322,13 +322,16 @@ var rewrite_return_and_throw = function(l, i, lambda) {
 		}
 	}));
 };
-
+var k1, k2, k3, k4;
 var _test2 = function() {
 	var a = callcc(function(cc) {
+		k1 = cc;
 		return callcc(function(cc) {
+			k2 = cc;
 			return 5;
 		});
 	}) + callcc(function(cc) {
+		k3 = cc;
 		return 5;
 	});
 	console.log(new Error().stack);
@@ -340,7 +343,7 @@ var _test2 = function() {
 	print("b = " + b);
 	var k;
 	var x = callcc(function(cc) {
-		k = cc;
+		k4 = k = cc;
 		return 0;
 	});
 	print("x = " + x);
@@ -465,4 +468,56 @@ var _test2_callccify = function(cps) {
 };
 let t = use_callcc(_test2);
 let print = console.log;
-t();
+// t();
+let tt = function() {
+    var a, b, k, x;
+    callcc(function(cc) {
+        k1 = cc;
+        callcc(function(cc) {
+            k2 = cc;
+            return 5;
+        }, null, function($0error0$, $0value0$) {
+            if ($0error0$) return cc($0error0$); else {
+                return cc(null, $0value0$);
+            }
+        })
+    }, null, function($0error0$, $0value0$) {
+        if ($0error0$) return cc($0error0$); else callcc(function(cc) {
+            k3 = cc;
+            return 5;
+        }, null, function($0error1$, $0value1$) {
+            if ($0error0$) return cc($0error0$); else {
+                a = $0value0$ + $0value1$
+                console.log(new Error().stack);
+                print("a = " + a);
+                callcc(function(cc) {
+                    var f;
+                    f = 6
+                    cc(null, f);
+                }, null, function($1error0$, $1value0$) {
+                    if ($1error0$) return cc($1error0$); else {
+                        b = $1value0$
+                        print("b = " + b);
+                        callcc(function(cc) {
+                            k4 = k = cc;
+                            return 0;
+                        }, null, function($2error0$, $2value0$) {
+                            if ($2error0$) return cc($2error0$); else {
+                                x = $2value0$
+                                print("x = " + x);
+                                if (x < 5) k(null, x + 1);
+                            }
+                        })
+                    }
+                })
+            }
+        })
+    })
+};
+tt();
+setTimeout(function() {
+	k1(6);
+	k2(2);
+	k3(4);
+	k4(3);
+}, 3000);
