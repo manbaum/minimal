@@ -187,26 +187,25 @@ const u2_cpsify = function(func) {
 	return u2ast.transformer(null, function(node, level, transformer) {
 		let parent = transformer.parent();
 		if (node.body && Array.isArray(node.body) && node.body.length) {
-			console.log(`-- parent: ${node.CTOR.TYPE} [...${node.body[node.body.length - 1].CTOR.TYPE}] -> ${parent ? parent.CTOR.TYPE : "null"}`);
+			// console.log(`-- parent: ${node.CTOR.TYPE} [...${node.body[node.body.length - 1].CTOR.TYPE}] -> ${parent ? parent.CTOR.TYPE : "null"}`);
 			u2_simplify_body(node, node.body);
 			return node;
 		}
 	})(func_ret);
 };
 const u2_rewrite_callcc = function(sym_cps, body) {
-	let sym_error = u2ast.symvar(error_name());
-	let sym_value = u2ast.symvar(value_name());
-	let sym_ex = u2ast.symvar(error_name());
-
 	let new_body = [];
 	let collect_callcc = new Map();
 	for (let i = 0; i < body.length; i++) {
 		let st = body[i];
-		u2ast.walker(function(node, level, walker) {
+		// collect all callccs.
+		u2ast.walker(function(node, level, descend, walker) {
 			if (node instanceof u2.AST_Lambda) {
+				// does NOT descend into inner functions.
 				return true;
 			} else if (node instanceof u2.AST_Call) {
 				if (node.expression instanceof u2.AST_SymbolRef && node.expression.name == "callcc") {
+					// write done the callcc call.
 					collect_callcc.set(node, {
 						sym_err: u2ast.symvar(error_name()),
 						sym_val: u2ast.symvar(value_name())
@@ -214,22 +213,59 @@ const u2_rewrite_callcc = function(sym_cps, body) {
 				}
 			}
 		})(st);
+		// if any callcc call found.
 		if (collect_callcc.size) {
-			let rest = body.slice(i + 1);
+			// create continuation.
+			let rest = u2_rewrite_callcc(sym_cps, body.slice(i + 1));
 			new_body.push(u2_create_continuation(sym_cps, st, collect_callcc, rest));
-			return new_body;
+			// rest statements should be in the continuation, break!
+			break;
+		} else {
+			// no callcc call found, write done the statement.
+			new_body.push(st);
 		}
 	}
-	let btry = new_body.map(u2ast.transformer(function(node, level) {
-		if (node instanceof u2.AST_Function) {
+	return u2_rewrite_return_and_throw(sym_cps, new_body);
+};
+const u2_create_continuation = function(sym_cps, st, collect_callcc, rest) {
+	let new_st = u2ast.transformer(function(node) {
+		if (node instanceof u2.AST_Lambda) {
 			return node;
 		} else if (node instanceof u2.AST_Call) {
 			if (node.expression instanceof u2.AST_SymbolRef && node.expression.name == "callcc") {
-				let lambda = node.args[0];
-				if (lambda instanceof u2.AST_Function) {
-					return u2ast.call(node.expression, [u2_cpsify(lambda)]);
-				}
+				return collect_callcc.get(node).sym_val;
 			}
+		}
+	})(st);
+	let ret_st, cps, last;
+	collect_callcc.forEach(function(v, node) {
+		let argnames = [v.sym_err, v.sym_val];
+		let lambda = node.args[0];
+		if (lambda instanceof u2.AST_Function) {
+			let lambda_body = u2_rewrite_callcc(lambda.argnames[0], lambda.body);
+			lambda = u2ast.function(lambda.name, lambda.argnames, lambda_body);
+		}
+		let context = node.args[1] || u2ast.null;
+		if (!ret_st) {
+			let cps_body = u2_rewrite_return_and_throw(sym_cps, [new_st, ...rest]);
+			cps = u2ast.function(null, argnames, cps_body);
+			ret_st = u2ast.call(node.expression, [lambda, context, cps]);
+		} else {
+			cps = u2ast.function(null, argnames, last.body);
+			last.body = [u2ast.call(node.expression, [lambda, context, cps])];
+		}
+		last = cps;
+		sym_cps = lambda.argnames[0];
+	});
+	return ret_st;
+};
+const u2_rewrite_return_and_throw = function(sym_cps, body) {
+	let sym_error = u2ast.symvar(error_name());
+	let sym_value = u2ast.symvar(value_name());
+	let sym_ex = u2ast.symvar(error_name());
+	let btry = body.map(u2ast.transformer(function(node, level) {
+		if (node instanceof u2.AST_Function) {
+			return node;
 		}
 	}, function(node, level) {
 		if (node instanceof u2.AST_Return) {
@@ -249,41 +285,7 @@ const u2_rewrite_callcc = function(sym_cps, body) {
 	let st_try = u2ast.try(btry, u2ast.catch(sym_ex, bcatch), u2ast.finally(bfinally));
 	return [st_var, st_try];
 };
-const u2_create_continuation = function(sym_cps, st, collect_callcc, rest) {
-	let new_st = u2ast.transformer(function(node) {
-		if (node instanceof u2.AST_Lambda) {
-			return node;
-		} else if (node instanceof u2.AST_Call) {
-			if (node.expression instanceof u2.AST_SymbolRef && node.expression.name == "callcc") {
-				return collect_callcc.get(node).sym_val;
-			}
-		}
-	})(st);
-	let ret_st, cps, last;
-	collect_callcc.forEach(function(v, node) {
-		let argnames = [v.sym_err, v.sym_val];
-		let lambda = node.args[0];
-		let context = node.args[1] || u2ast.null;
-		if (!ret_st) {
-			let str = u2ast.simple(u2ast.string(
-				`'returns' and 'throws' below should be replaced with call to ${sym_cps.name}`));
-			cps = u2ast.function(null, argnames, [str, new_st, ...rest]);
-			ret_st = u2ast.call(node.expression, [lambda, context, cps]);
-			last = cps;
-			sym_cps = lambda.argnames[0];
-		} else {
-			let str = u2ast.simple(u2ast.string(
-				`'returns' and 'throws' below should be replaced with call to ${sym_cps.name}`));
-			cps = u2ast.function(null, argnames, last.body);
-			last.body = [str, u2ast.call(node.expression, [lambda, context, cps])];
-			sym_cps = lambda.argnames[0];
-		}
-		console.log("-".repeat(20));
-		print_ast(ret_st);
-	});
-	return ret_st;
-}
-const u2_simplify_body = function(node, body, eliminate_trailing_return) {
+const u2_simplify_body = function(body, eliminate_trailing_return) {
 	let n = body.length;
 	if (n > 0 && body[n - 1] instanceof u2.AST_BlockStatement) {
 		body.splice(n - 1, 1, ...body[n - 1].body);
@@ -316,16 +318,16 @@ var test2 = function(a) {
 var test3 = function() {
 	var a = callcc(function(cc) {
 		k1 = cc;
-		return callcc(function(cc) {
+		cc(5 + callcc(function(cc) {
 			k2 = cc;
-			return 5;
-		});
+			cc(5);
+		}));
 	}) + callcc(function(cc) {
 		k3 = cc;
 		if (u()) {
-			return g(6, cc);
+			cc(g(6, cc));
 		}
-		return 5;
+		cc(5);
 	});
 	console.log(new Error().stack);
 	print("a = " + a);
@@ -337,18 +339,19 @@ var test3 = function() {
 	var k;
 	var x = callcc(function(cc) {
 		k4 = k = cc;
-		return 0;
+		cc(0);
 	});
 	print("x = " + x);
-	if (x < 5) k(null, x + 1);
 	var y = callcc(function(cc) {
 		(function(callback) {
-			// callback(5);
+			callback(5);
 			throw new Error("gaga!");
 		})(function(value) {
 			cc(value);
 		});
 	});
+	console.log(y);
+	if (x < 5) k(null, x + 1);
 };
 
 var code = "(" + test3.toString() + ")";
@@ -358,7 +361,7 @@ var f = ast.body[0].body;
 var new_ast = u2_cpsify(f);
 // console.log(new_ast);
 print_ast(new_ast);
-var min_ast = u2ast.minify(new_ast, true);
+var min_ast = u2ast.minify(new_ast, false);
 print_ast(min_ast);
 
 // console.log("-".repeat(20));

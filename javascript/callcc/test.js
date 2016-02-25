@@ -358,115 +358,6 @@ var _test2 = function() {
 	});
 };
 
-
-var _test2_cpsify = function(cps) {
-	try {
-		cps(null, (function() {
-			var a = callcc(function(cc, cps) {
-				try {
-					cps(null, (function(cc) {
-						return callcc(function(cc, cps) {
-							try {
-								cps(null, (function(cc) {
-									return 5;
-								})(cc));
-							} catch (error) {
-								cps(error);
-							}
-						});
-					})(cc));
-				} catch (error) {
-					cps(error);
-				}
-			}) + callcc(function(cc, cps) {
-				try {
-					cps(null, (function(cc) {
-						return 5;
-					})(cc));
-				} catch (error) {
-					cps(error);
-				}
-			});
-			console.log(new Error().stack);
-			print("a = " + a);
-			var b = callcc(function(cc, cps) {
-				try {
-					cps(null, (function(cc) {
-						var f = 6;
-						cc(null, f);
-					})(cc));
-				} catch (error) {
-					cps(error);
-				}
-			});
-			print("b = " + b);
-			var k;
-			var x = callcc(function(cc, cps) {
-				try {
-					cps(null, (function(cc) {
-						k = cc;
-						return 0;
-					})(cc));
-				} catch (error) {
-					cps(error);
-				}
-			});
-			print("x = " + x);
-			if (x < 5) k(null, x + 1);
-			var y = callcc(function(cc, cps) {
-				try {
-					cps(null, (function(cc) {
-						(function(callback) {
-							// callback(5);
-							throw new Error("gaga!");
-						})(function(value) {
-							cc(value);
-						});
-					})(cc));
-				} catch (error) {
-					cps(error);
-				}
-			});
-		})(cps));
-	} catch (error) {
-		cps(error);
-	}
-};
-var _test2_callccify = function(cps) {
-	callcc4c(function(cc, cps) {
-		try {
-			cps(null, (function(cc, cps) {
-				function(cc) {
-				return callcc4c(f2c(function(cc) {
-					return 5;
-				}));
-			})(cc));
-		} catch (error) {
-			cps(error);
-		}
-	}), null, function(e0, v0) {
-		callcc4c(f2c(function(cc) {
-			return 5;
-		}), null, function(e1, v1) {
-			var a = v0 + v1;
-			console.log(new Error().stack);
-			print("a = " + a);
-			var b = callcc(f2c(function(cc) {
-				var f = 6;
-				cc(null, f);
-			}));
-			print("b = " + b);
-			var k;
-			var x = callcc(f2c(function(cc) {
-				k = cc;
-				return 0;
-			}));
-			print("x = " + x);
-			if (x < 5) k(null, x + 1);
-		});
-	});
-};
-let t = use_callcc(_test2);
 let print = console.log;
 // t();
 let tt = function() {
@@ -521,3 +412,15 @@ setTimeout(function() {
 	k3(4);
 	k4(3);
 }, 3000);
+
+
+// cps(1,2,3,c1)(4,c2)(5,c3)((x) => console.log(x));
+
+// let cps = function() {
+// 	let args = [...arguments];
+// 	let last = args.splice[args.length - 1, 1];
+// 	let cps = isFunction(last[0]) ? last[0] : null;
+// 	return function() {
+
+// 	}
+// }
