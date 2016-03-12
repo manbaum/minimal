@@ -1,87 +1,164 @@
 
-var ZERO = f => x => x;
-var ONE = f => x => f(x);
-var TWO = f => x => f(f(x));
-var toI = n => n(i => i + 1)(0);
-var fromI = i => i > 0 ? f => x => f(fromI(i - 1)(f)(x)) : ZERO;
+"use strict"
 
-var TRUE = x => y => x;
-var FALSE = x => y => y;
-var NOT = b => b(FALSE)(TRUE);
-var AND = b => c => b(c)(FALSE);
-var OR = b => c => b(TRUE)(c);
-var XOR = b => c => b(c(FALSE)(TRUE))(c);
-var toB = b => b(true)(false);
+const nZERO = f => x => x;
+const nONE = f => x => f(x);
+const nTWO = f => x => f(f(x));
+const nTHREE = f => x => f(f(f(x)));
 
-var IF = b => b;
-var ISZERO = n => n(TRUE(FALSE))(TRUE);
+const INC = n => f => x => f(n(f)(x));
+const ADD = m => n => n(INC)(m);
+const MUL = m => n => n(ADD(m))(nZERO);
+const POW = m => n => n(MUL(m))(nONE);
 
-var PAIR = x => y => f => f(x)(y);
-var LEFT = p => p(TRUE);
-var RIGHT = p => p(FALSE);
+const nFIVE = ADD(nTWO)(nTHREE);
+const nTEN = ADD(nFIVE)(nFIVE);
+const nFIFTEEN = ADD(nFIVE)(nTEN);
+const nHUNDRED = MUL(nTEN)(nTEN);
 
-var INC = n => f => x => f(n(f)(x));
-var SLIDE = p => PAIR(RIGHT(p))(INC(RIGHT(p)));
-var DEC = n => LEFT(n(SLIDE)(PAIR(ZERO)(ZERO)));
+const bTRUE = x => y => x;
+const bFALSE = x => y => y;
 
-var ADD = m => n => n(INC)(m);
-var SUB = m => n => n(DEC)(m);
-var MUL = m => n => n(ADD(m))(ZERO);
-var POW = m => n => n(MUL(m))(ONE);
+const IF = c => c;
 
-var ISLESSOREQ = m => n => ISZERO(SUB(m)(n));
+const NOT = b => b(bFALSE)(bTRUE);
+const AND = b => c => b(c)(bFALSE);
+const OR = b => c => b(bTRUE)(c);
+const XOR = b => c => b(c(bFALSE)(bTRUE))(c);
+const EQV = b => c => b(c)(c(bFALSE)(bTRUE));
+const NAND = b => c => b(c)(bFALSE)(bFALSE)(bTRUE);
 
-var Y = f => (x => f(x(x)))(x => f(x(x)));
-var Z = f => (x => f(y => x(x)(y)))(x => f(y => x(x)(y)));
+const ISZERO = n => n(bTRUE(bFALSE))(bTRUE);
 
-var MOD = Z(f => m => n => IF(ISLESSOREQ(n)(m))(x => f(SUB(m)(n))(n)(x))(m));
-var DIV = Z(f => m => n => IF(ISLESSOREQ(n)(m))(x => INC(f(SUB(m)(n))(n))(x))(ZERO));
+const PAIR = x => y => f => f(x)(y);
+const LEFT = p => p(bTRUE);
+const RIGHT = p => p(bFALSE);
 
-var EMPTY = PAIR(TRUE)(TRUE);
-var ISEMPTY = LEFT;
-var UNSHIFT = l => x => PAIR(FALSE)(PAIR(x)(l));
-var FIRST = l => LEFT(RIGHT(l));
-var REST = l => RIGHT(RIGHT(l));
-var toA = l => toB(ISEMPTY(l)) ? [] : [FIRST(l), ...toA(REST(l))];
-var fromA = a => a.length > 0 ? UNSHIFT(fromA(a.slice(1)))(a[0]) : EMPTY;
+const SLIDE = p => PAIR(RIGHT(p))(INC(RIGHT(p)));
+const DEC = n => LEFT(n(SLIDE)(PAIR(nZERO)(nZERO)));
+const SUB = m => n => n(DEC)(m);
 
-var RANGE = Z(f => m => n => IF(ISLESSOREQ(m)(n))(x => UNSHIFT(f(INC(m))(n))(m)(x))(EMPTY));
+const ISLESSOREQ = m => n => ISZERO(SUB(m)(n));
+const ISGREATOREQ = m => n => ISZERO(SUB(n)(m));
+const ISLESS = m => n => NOT(ISZERO(SUB(n)(m)));
+const ISGREAT = m => n => NOT(ISZERO(SUB(m)(n)));
+const ISEQ = m => n => AND(ISZERO(SUB(m)(n)))(ISZERO(SUB(n)(m)));
+const ISNOTEQ = m => n => NOT(AND(ISZERO(SUB(m)(n)))(ISZERO(SUB(n)(m))));
 
-var FOLD = Z(f => l => x => g => IF(ISEMPTY(l))(x)(y => g(f(REST(l))(x)(g))(FIRST(l))(y)));
-var MAP = k => f => FOLD(k)(EMPTY)(l => x => UNSHIFT(l)(f(x)));
+const Y = f => (x => f(x(x)))(x => f(x(x)));
+const Z = f => (x => f(y => x(x)(y)))(x => f(y => x(x)(y)));
 
-var PUSH = l => x => FOLD(l)(UNSHIFT(EMPTY)(x))(UNSHIFT);
+const MOD = Z(f =>
+	m => n => IF
+		(ISLESS(m)(n))
+		(m)
+		(y => f
+			(SUB(m)(n))
+			(n)
+			(y)));
+const DIV = Z(f =>
+	m => n => IF
+		(ISLESS(m)(n))
+		(nZERO)
+		(INC(y => f
+			(SUB(m)(n))
+			(n)
+			(y))));
 
-var THREE = INC(TWO);
-var FOUR = INC(THREE);
-var FIVE = INC(FOUR);
-var NINE = ADD(FOUR)(FIVE);
-var TEN = ADD(FIVE)(FIVE);
-var FIFTEEN = ADD(FIVE)(TEN);
-var HUNDRED = MUL(TEN)(TEN);
+const lEMPTY = PAIR(bTRUE)(bTRUE);
 
-var B = TEN;
-var F = INC(B);
-var I = INC(F);
-var U = INC(I);
-var ZED = INC(U);
-var FIZZ = UNSHIFT(UNSHIFT(UNSHIFT(UNSHIFT(EMPTY)(ZED))(ZED))(I))(F);
-var BUZZ = UNSHIFT(UNSHIFT(UNSHIFT(UNSHIFT(EMPTY)(ZED))(ZED))(U))(B);
-var FIZZBUZZ = UNSHIFT(UNSHIFT(UNSHIFT(UNSHIFT(BUZZ)(ZED))(ZED))(I))(F);
+const ISEMPTY = l => LEFT(l);
+const CONS = x => l => PAIR(bFALSE)(PAIR(x)(l));
+const CAR = l => LEFT(RIGHT(l));
+const CDR = l => RIGHT(RIGHT(l));
+const FOLD = Z(f =>
+	l => m => g => IF
+		(ISEMPTY(l))
+		(m)
+		(g
+			(y => f
+				(CDR(l))
+				(m)
+				(g)
+				(y))
+			(CAR(l))));
+const LENGTH = l => FOLD(l)(nZERO)(m => x => INC(m));
+const MAP = l => f => (FOLD
+	(l)
+	(lEMPTY)
+	(m => x => CONS(f(x))(m)));
+const PUSH = l => x => (FOLD
+	(l)
+	(CONS(x)(lEMPTY))
+	(m => x => CONS(x)(m)));
+const REVERSE = l => (FOLD
+	(l)
+	(lEMPTY)
+	(m => x => PUSH(m)(x)));
+const ZIP = Z(f =>
+	a => b => IF
+		(ISEMPTY(a))
+		(lEMPTY)
+		(IF
+			(ISEMPTY(b))
+			(lEMPTY)
+			(CONS
+				(PAIR(CAR(a))(CAR(b)))
+				(y => f
+					(CDR(a))
+					(CDR(b))
+					(y)))));
 
-var toC = c => "0123456789BFiuz".substr(toI(c), 1);
-var toS = s => toA(s).map(toC).join("");
-var DIGITS = Z(f => n => PUSH(IF(ISLESSOREQ(n)(NINE))(EMPTY)(x => f(DIV(n)(TEN))(x)))(MOD(n)(TEN)));
+const RANGE = Z(f =>
+	m => n => IF
+		(ISGREAT(m)(n))
+		(lEMPTY)
+		(CONS
+			(m)
+			(y => f
+				(INC(m))
+				(n)
+				(y))));
+
+const cB = nTEN;
+const cF = INC(cB);
+const cI = INC(cF);
+const cU = INC(cI);
+const cZ = INC(cU);
+const sFIZZ = CONS(cF)(CONS(cI)(CONS(cZ)(CONS(cZ)(lEMPTY))));
+const sBUZZ = CONS(cB)(CONS(cU)(CONS(cZ)(CONS(cZ)(lEMPTY))));
+const sFIZZBUZZ = CONS(cF)(CONS(cI)(CONS(cZ)(CONS(cZ)(sBUZZ))));
+
+const DIGITS = Z(f =>
+	n => PUSH
+		(IF
+			(ISLESS(n)(nTEN))
+			(lEMPTY)
+			(y => f
+				(DIV(n)(nTEN))
+				(y)))
+		(MOD(n)(nTEN)));
 
 
-var SOLUTION = MAP(RANGE(ONE)(HUNDRED))(n =>
-	IF(ISZERO(MOD(n)(FIFTEEN)))(FIZZBUZZ)(
-		IF(ISZERO(MOD(n)(THREE)))(FIZZ)(
-			IF(ISZERO(MOD(n)(FIVE)))(BUZZ)(
-				DIGITS(n)
-			)
-		)
-	)
-);
+const SOLUTION =(MAP
+	(RANGE(nONE)(nHUNDRED))
+	(n => IF
+		(ISZERO(MOD(n)(nFIFTEEN)))
+		(sFIZZBUZZ)
+		(IF
+			(ISZERO(MOD(n)(nTHREE)))
+			(sFIZZ)
+			(IF
+				(ISZERO(MOD(n)(nFIVE)))
+				(sBUZZ)
+				(DIGITS(n))))));
+
+const toI = n => n(i => i + 1)(0);
+const fmI = Z(f => i => i > 0 ? INC(y => f(i - 1)(y)) : nZERO);
+const toB = b => b(true)(false);
+const toA = l => Z(f => l => toB(ISEMPTY(l)) ? y => [] : y => [CAR(l), ...f(CDR(l))(y)])(l)();
+const fmA = a => a.reduce((m, x) => CONS(x)(m), lEMPTY);
+const toC = c => "0123456789BFiuz".substr(toI(c), 1);
+const toS = s => toA(s).map(toC).join("");
 
 console.log(toA(SOLUTION).map(toS).join(", "));
