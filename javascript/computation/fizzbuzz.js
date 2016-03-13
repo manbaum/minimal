@@ -48,22 +48,22 @@ const ISNOTEQ = m => n => NOT(AND(ISZERO(SUB(m)(n)))(ISZERO(SUB(n)(m))));
 const Y = f => (x => f(x(x)))(x => f(x(x)));
 const Z = f => (x => f(y => x(x)(y)))(x => f(y => x(x)(y)));
 
-const MOD = Z(f =>
+const MOD = m => n => Z(f =>
 	m => n => IF
 		(ISLESS(m)(n))
 		(m)
 		(y => f
 			(SUB(m)(n))
 			(n)
-			(y)));
-const DIV = Z(f =>
+			(y)))(m)(n);
+const DIV = m => n => Z(f =>
 	m => n => IF
 		(ISLESS(m)(n))
 		(nZERO)
 		(INC(y => f
 			(SUB(m)(n))
 			(n)
-			(y))));
+			(y))))(m)(n);
 
 const lEMPTY = PAIR(bTRUE)(bTRUE);
 
@@ -71,7 +71,7 @@ const ISEMPTY = l => LEFT(l);
 const CONS = x => l => PAIR(bFALSE)(PAIR(x)(l));
 const CAR = l => LEFT(RIGHT(l));
 const CDR = l => RIGHT(RIGHT(l));
-const FOLD = Z(f =>
+const FOLD = l => m => g => Z(f =>
 	l => m => g => IF
 		(ISEMPTY(l))
 		(m)
@@ -81,7 +81,7 @@ const FOLD = Z(f =>
 				(m)
 				(g)
 				(y))
-			(CAR(l))));
+			(CAR(l))))(l)(m)(g);
 const LENGTH = l => FOLD(l)(nZERO)(m => x => INC(m));
 const MAP = l => f => (FOLD
 	(l)
@@ -91,11 +91,19 @@ const PUSH = l => x => (FOLD
 	(l)
 	(CONS(x)(lEMPTY))
 	(m => x => CONS(x)(m)));
+const PICK = l => n => Z(f =>
+	l => n => IF
+		(ISZERO(n))
+		(CAR(l))
+		(y => f
+			(CDR(l))
+			(DEC(n))
+			(y)))(l)(n);
 const REVERSE = l => (FOLD
 	(l)
 	(lEMPTY)
 	(m => x => PUSH(m)(x)));
-const ZIP = Z(f =>
+const ZIP = a => b => Z(f =>
 	a => b => IF
 		(ISEMPTY(a))
 		(lEMPTY)
@@ -107,9 +115,9 @@ const ZIP = Z(f =>
 				(y => f
 					(CDR(a))
 					(CDR(b))
-					(y)))));
+					(y)))))(a)(b);
 
-const RANGE = Z(f =>
+const RANGE = m => n => Z(f =>
 	m => n => IF
 		(ISGREAT(m)(n))
 		(lEMPTY)
@@ -118,7 +126,7 @@ const RANGE = Z(f =>
 			(y => f
 				(INC(m))
 				(n)
-				(y))));
+				(y))))(m)(n);
 
 const cB = nTEN;
 const cF = INC(cB);
@@ -129,7 +137,7 @@ const sFIZZ = CONS(cF)(CONS(cI)(CONS(cZ)(CONS(cZ)(lEMPTY))));
 const sBUZZ = CONS(cB)(CONS(cU)(CONS(cZ)(CONS(cZ)(lEMPTY))));
 const sFIZZBUZZ = CONS(cF)(CONS(cI)(CONS(cZ)(CONS(cZ)(sBUZZ))));
 
-const DIGITS = Z(f =>
+const DIGITS = n => Z(f =>
 	n => PUSH
 		(IF
 			(ISLESS(n)(nTEN))
@@ -137,7 +145,7 @@ const DIGITS = Z(f =>
 			(y => f
 				(DIV(n)(nTEN))
 				(y)))
-		(MOD(n)(nTEN)));
+		(MOD(n)(nTEN)))(n);
 
 
 const SOLUTION =(MAP
@@ -154,7 +162,7 @@ const SOLUTION =(MAP
 				(DIGITS(n))))));
 
 const toI = n => n(i => i + 1)(0);
-const fmI = Z(f => i => i > 0 ? INC(y => f(i - 1)(y)) : nZERO);
+const fmI = i => Z(f => i => i > 0 ? INC(y => f(i - 1)(y)) : nZERO)(i);
 const toB = b => b(true)(false);
 const toA = l => Z(f => l => toB(ISEMPTY(l)) ? y => [] : y => [CAR(l), ...f(CDR(l))(y)])(l)();
 const fmA = a => a.reduce((m, x) => CONS(x)(m), lEMPTY);
