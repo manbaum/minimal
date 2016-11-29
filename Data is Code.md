@@ -1,4 +1,6 @@
 
+Original Post: http://www.haskellforall.com/2016/04/data-is-code.html
+
 # Data is Code
 
 The title of this post is a play on the Lisp aphorism: "Code is Data". In the Lisp world everything is data; code is just another data structure that you can manipulate and transform.
