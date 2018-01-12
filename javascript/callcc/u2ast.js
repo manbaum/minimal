@@ -115,12 +115,16 @@ u2ast.compressor = u2.Compressor({ side_effects: false });
 u2ast.compress = function(ast) {
 	return ast.transform(u2ast.compressor);
 };
-u2ast.mangle = function(func) {
-	let ast = u2.parse("(" + func.print_to_string() + ")");
+u2ast.mangle = function(orig_ast) {
+	let code = orig_ast.print_to_string();
+	if (/^\s*function\s*\(/.test(code)) {
+		code = "(" + code + ")";
+	}
+	let ast = u2.parse(code);
 	ast.figure_out_scope();
 	ast.compute_char_frequency();
 	ast.mangle_names();
-	return ast.body[0].body;
+	return ast;
 }
 u2ast.minify = function(func, no_compress) {
 	let ast = u2ast.mangle(func);

@@ -12,10 +12,9 @@ const value_name = () => u.make_name("val_", "");
 
 const u2_cpsify = function(func) {
 	let sym_cps = u2ast.symvar(cps_name());
-	let name = func.name ? cps_name() + "$" + func.name : null;
-	let argnames = func.argnames ? [...func.argnames, sym_cps] : [sym_cps];
+	let new_argnames = func.argnames ? [...func.argnames, sym_cps] : [sym_cps];
 	let new_body = u2_rewrite_callcc(sym_cps, func.body);
-	let func_ret = u2ast.function(name, argnames, new_body);
+	let new_func = u2ast.function(func.name, new_argnames, new_body);
 	return u2ast.transformer(null, function(node, level, transformer) {
 		let parent = transformer.parent();
 		if (node.body && Array.isArray(node.body) && node.body.length) {
@@ -23,7 +22,7 @@ const u2_cpsify = function(func) {
 			u2_simplify_body(node, node.body);
 			return node;
 		}
-	})(func_ret);
+	})(new_func);
 };
 const u2_rewrite_callcc = function(sym_cps, body) {
 	let new_body = [];
@@ -32,10 +31,7 @@ const u2_rewrite_callcc = function(sym_cps, body) {
 		let st = body[i];
 		// collect all callccs.
 		u2ast.walker(function(node, level, descend, walker) {
-			if (node instanceof u2.AST_Lambda) {
-				// does NOT descend into inner functions.
-				return true;
-			} else if (node instanceof u2.AST_Call) {
+			if (node instanceof u2.AST_Call) {
 				if (node.expression instanceof u2.AST_SymbolRef && node.expression.name == "callcc") {
 					// write done the callcc call.
 					collect_callcc.set(node, {
@@ -43,6 +39,9 @@ const u2_rewrite_callcc = function(sym_cps, body) {
 						sym_val: u2ast.symvar(value_name())
 					});
 				}
+			} else if (node instanceof u2.AST_Lambda) {
+				// does NOT descend into inner functions.
+				return true;
 			}
 		})(st);
 		// if any callcc call found.
@@ -186,15 +185,15 @@ var test3 = function() {
 	if (x < 5) k(null, x + 1);
 };
 
-var code = "(" + test3.toString() + ")";
-var ast = u2.parse(code);
-// console.log(ast);
-var f = ast.body[0].body;
-var new_ast = u2_cpsify(f);
-// console.log(new_ast);
-print_ast(new_ast);
-var min_ast = u2ast.minify(new_ast, false);
-print_ast(min_ast);
+// var code = "(" + test3.toString() + ")";
+// var ast = u2.parse(code);
+// // console.log(ast);
+// var f = ast.body[0].body;
+// var new_ast = u2_cpsify(f);
+// // console.log(new_ast);
+// print_ast(new_ast);
+// var min_ast = u2ast.minify(new_ast, false);
+// print_ast(min_ast);
 
 // console.log("-".repeat(20));
 // ast = u2.parse("(function(a){return a(function(){ return 3; });})");
@@ -256,3 +255,30 @@ print_ast(min_ast);
 // code = "(" + p.toString() + ")";
 // ast = u2.parse(code);
 // print_ast(ast);
+
+var oddEvenList = function(head) {
+    if (head && head.next) {
+        var ehead = head.next, po = head, pe = ehead;
+        while(1) {
+            if (!pe.next) break;
+            else po = po.next = pe.next;
+            if (!po.next) break;
+            else pe = pe.next = po.next;
+        }
+        po.next = ehead, pe.next = null;
+    }
+    return head;
+};
+
+let code = "(" + oddEvenList.toString() + ")";
+console.log(code);
+console.log();
+try {
+	let ast = u2.parse(code);
+	let min_ast = u2ast.minify(ast, true);
+	print_ast(min_ast);
+} catch (e) {
+	console.log(e);
+	console.log();
+	console.log(code.substr(e.col));
+}
