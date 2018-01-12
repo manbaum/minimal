@@ -80,7 +80,8 @@ var Holder = function(n) {
 	this.push = function(partition, printPartition) {
 		partitions.push(partition);
 		if (partition.length > 0) ++stats[n - partition[0]];
-		if (printPartition) printPartition(n, partitions.length, partition);
+		else console.log(`......... ah!!!`);
+		// if (printPartition) printPartition(n, partitions.length, partition);
 		return this;
 	}
 	this.merge = function(holder, printPartition) {
@@ -277,7 +278,7 @@ var partitionCount = (function() {
 		else if (m == 2) return (n + 2) >> 1;
 		var v = cache.get(n, m);
 		if (v) return v;
-//		else if (n > m) return cache.put(n, m, p(n - m, m) + p(n, m - 1));
+		else if (n > m) return cache.put(n, m, p(n - m, m) + p(n, m - 1));
 		else {
 			var sum = 0;
 			for (var i = m; i > 0; i--) {
@@ -417,7 +418,7 @@ var explainPartitionCount = (function() {
 			doPartition(n, count, partition1);
 			// doPartition(n, count, partition2);
 		}
-		explain(n, n);
+		// explain(n, n);
 	}
 	var verbose = false;
 	var skip = false;
