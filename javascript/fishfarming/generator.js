@@ -20,7 +20,18 @@ const toLength = value => {
 };
 const isRegExp = x => x && x.constructor === RegExp;
 
-const G = (function*() {})().constructor;
+const nil = function*() {};
+const GeneratorFunction = nil.constructor;
+const G = nil().constructor;
+
+const toArrayRecursive = x => {
+	if (x != null && typeof x.valueOf() == "object" &&
+		(G.isGenerator(x) || G.isIterable(x) || G.isArrayLike(x))) {
+		return Array.from(x, toArrayRecursive);
+	} else {
+		return x;
+	}
+};
 
 D(G)
 	.method({
@@ -31,7 +42,10 @@ D(G)
 			return it && util.isFunction(it[Symbol.iterator]);
 		},
 		isArrayLike(it) {
-			return it && ("length" in Object(it));
+			return it && "length" in Object(it);
+		},
+		isGeneratorFunction(genF) {
+			return genF && genF.constructor === GeneratorFunction;
 		},
 		create: function*(it) {
 			if (!it) return;
@@ -46,8 +60,8 @@ D(G)
 				}
 			}
 		},
-		of: function*(...elements) {
-			yield* elements;
+		of: function*() {
+			yield* arguments;
 		},
 		from(it, cb, thisArg) {
 			let gen;
@@ -60,7 +74,10 @@ D(G)
 			}
 			return cb ? G.map(cb, thisArg)(gen) : gen;
 		},
-		nil: function*() {},
+		from1(it) {
+			return G.from(it);
+		},
+		nil,
 		xnat: (s = 0) => function*(n) {
 			const ns = toLength(s),
 				nn = toLength(n);
@@ -76,7 +93,7 @@ D(G)
 				yield ns + (nn - 1) - i;
 			}
 		},
-		natrev: n => G.xnat(0)(n),
+		natrev: n => G.xnatrev(0)(n),
 		xneg: (s = -1) => function*(n) {
 			const ns = toLength(s),
 				nn = toLength(n);
@@ -84,7 +101,7 @@ D(G)
 				yield ns - i;
 			}
 		},
-		neg: n => G.xnat(-1)(n),
+		neg: n => G.xneg(-1)(n),
 		xnegrev: (s = -1) => function*(n) {
 			const ns = toLength(s),
 				nn = toLength(n);
@@ -92,7 +109,7 @@ D(G)
 				yield ns - (nn - 1) + i;
 			}
 		},
-		negrev: n => G.xnat(-1)(n),
+		negrev: n => G.xnegrev(-1)(n),
 		regexec: (re, cb, thisArg) => function*(string) {
 			if (isRegExp(re)) {
 				const n = string.length;
@@ -120,13 +137,62 @@ D(G)
 				yield cb ? cb.call(thisArg, s, i, sp, string) : s;
 			}
 		},
+		splitLine(lineSP = /\r\n|\n|\r/g, cb, thisArg) {
+			return G.split(lineSP, cb, thisArg);
+		},
+		wrapLine: (lineWidth = 40, indentWidth = 0, indentChar = " ") => function*(string) {
+			const nLineWidth = toLength(lineWidth);
+			if (nLineWidth < 1) {
+				yield string;
+			} else {
+				const nIndentWidth = toLength(Math.abs(indentWidth)),
+					indentString = indentChar.repeat(nIndentWidth),
+					isHangingIndent = indentWidth >= 0;
+				let toWrap = string,
+					width = isHangingIndent ? nLineWidth : nLineWidth - nIndentWidth,
+					isFirstLine = true;
+				const update = (wrapped, rest) => {
+					toWrap = rest;
+					if (isFirstLine) {
+						isFirstLine = false;
+						width = isHangingIndent ? nLineWidth - nIndentWidth : nLineWidth;
+						return isHangingIndent ? wrapped : indentString + wrapped;
+					} else {
+						return isHangingIndent ? indentString + wrapped : wrapped;
+					}
+				};
+				while (true) {
+					const n = toWrap.length;
+					if (n == 0) {
+						break;
+					} else if (n < width) {
+						yield update(toWrap);
+						break;
+					} else {
+						let lastSP = n;
+						while (lastSP > width) {
+							lastSP = toWrap.lastIndexOf(" ", lastSP - 1);
+						}
+						if (lastSP < 0) {
+							yield update(
+								toWrap.substring(0, width),
+								toWrap.substring(width));
+						} else {
+							yield update(
+								toWrap.substring(0, lastSP),
+								toWrap.substring(lastSP + 1));
+						}
+					}
+				}
+			}
+		},
 		iterate: (cb, thisArg) => function*(x) {
-			let m = x,
+			let y = x,
 				i = 0;
-			yield m;
+			yield y;
 			while (true) {
-				m = cb.call(thisArg, m, i++);
-				yield m;
+				y = cb.call(thisArg, y, i++);
+				yield y;
 			}
 		},
 		repeat: function*(x) {
@@ -140,15 +206,15 @@ D(G)
 				yield x;
 			}
 		},
-		cycle: (gen, thisArg) => function*() {
+		cycle: (genF, thisArg) => function*() {
 			while (true) {
-				yield* gen.apply(thisArg, arguments);
+				yield* genF.apply(thisArg, arguments);
 			}
 		},
-		fork: (gen, thisArg) => (n = 2) => {
-			return G.nat(n).map(i => gen.call(thisArg, i));
+		fork: (n = 2) => (genF, thisArg) => function*() {
+			yield* G.nat(n).map(i => genF.apply(thisArg, arguments));
 		},
-		forEach: (cb, thisArg) => function*(xgen) {
+		forEach: (cb, thisArg) => xgen => {
 			let i = 0;
 			for (let x of xgen) {
 				cb.call(thisArg, x, i++, xgen);
@@ -363,24 +429,14 @@ D(G)
 				yield* x;
 			}
 		},
-		toArray(xgen) {
-			return xgen._array_ || Array.from(xgen);
+		toArray(xgen, cb, thisArg) {
+			return Array.from(xgen, cb, thisArg);
 		},
-		toArray2(xgen, cb, thisArg) {
-			const array = xgen._array_ || Array.from(xgen);
-			return cb ? array.map(cb, thisArg) : array;
+		toArray1(xgen) {
+			return Array.from(xgen);
 		},
 		toArrayRecursive(xgen) {
-			const convert = x => {
-				if (G.isGenerator(x)) {
-					return G.toArray(x, convert);
-				} else if (G.isIterable(x) || G.isArrayLike(x)) {
-					return G.toArray(G.create(x), convert);
-				} else {
-					return x;
-				}
-			};
-			return G.toArray(xgen, convert);
+			return Array.from(xgen, toArrayRecursive);
 		},
 		join: (sp, cb, thisArg) => xgen => {
 			let string = "",
@@ -392,17 +448,42 @@ D(G)
 				string += cb ? cb.call(thisArg, x, i++, xgen) : x;
 			}
 			return string;
+		},
+		fill: (array, retainLength = true, cb, thisArg) => xgen => {
+			const n = array.length;
+			let i = 0;
+			for (let x of xgen) {
+				if (!retainLength || i < n) {
+					array[i] = cb ? cb.call(thisArg, x, i, array, xgen) : x;
+					++i;
+				} else {
+					break;
+				}
+			}
+			if (!retainLength) {
+				array.length = i;
+			}
+			return array;
 		}
 	});
 
 D(Array.prototype)
 	.method({
 		toGenerator() {
-			return D(G.create(this))
-				.freeze({
-					_array_: this
-				})
-				.target;
+			return G.create(this);
+		},
+		setLength(n) {
+			this.length = toLength(n);
+		},
+		fillWith(xgen, retainLength = true) {
+			return G.fill(this, retainLength)(xgen);
+		},
+		updateEach(cb, thisArg) {
+			const n = this.length;
+			for (let i = 0; i < n; i++) {
+				this[i] = cb.call(thisArg, this[i], i, this);
+			}
+			return this;
 		}
 	});
 
@@ -415,7 +496,7 @@ D(G.prototype)
 			return G.map(cb, thisArg)(this);
 		},
 		flatMap(cb, thisArg) {
-			return G.flagMap(this)(cb, thisArg);
+			return G.flatMap(this)(cb, thisArg);
 		},
 		select(...keys) {
 			return G.select(...keys)(this);
@@ -490,13 +571,16 @@ D(G.prototype)
 			return G.collapse(this);
 		},
 		toArray(cb, thisArg) {
-			return G.toArray2(this, cb, thisArg);
+			return G.toArray(this, cb, thisArg);
 		},
 		toArrayRecursive() {
 			return G.toArrayRecursive(this);
 		},
 		join(sp, cb, thisArg) {
 			return G.join(sp, cb, thisArg)(this);
+		},
+		fill(array, retainLength = true, cb, thisArg) {
+			return G.fill(array, retainLength, cb, thisArg)(this);
 		}
 	});
 
