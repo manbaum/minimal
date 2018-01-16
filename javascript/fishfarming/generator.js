@@ -18,6 +18,10 @@ const toLength = value => {
 	let len = toInteger(value);
 	return Math.min(Math.max(len, 0), Number.MAX_SAFE_INTEGER);
 };
+const toIndex = value => {
+	let len = toInteger(value);
+	return Math.min(Math.max(len, Number.MIN_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
+}
 const isRegExp = x => x && x.constructor === RegExp;
 
 const nil = function*() {};
@@ -47,9 +51,10 @@ D(G)
 		isGeneratorFunction(genF) {
 			return genF && genF.constructor === GeneratorFunction;
 		},
+
+		nil,
 		create: function*(it) {
 			if (!it) return;
-
 			if (G.isIterable(it)) {
 				yield* it;
 			} else if (G.isArrayLike(it)) {
@@ -64,52 +69,46 @@ D(G)
 			yield* arguments;
 		},
 		from(it, cb, thisArg) {
-			let gen;
-			if (G.isGenerator(it)) {
-				gen = it;
-			} else if (Array.isArray(it)) {
-				gen = it.toGenerator();
-			} else {
-				gen = G.create(it);
-			}
+			const gen = G.isGenerator(it) ? it : G.create(it);
 			return cb ? G.map(cb, thisArg)(gen) : gen;
 		},
 		from1(it) {
 			return G.from(it);
 		},
-		nil,
-		xnat: (s = 0) => function*(n) {
-			const ns = toLength(s),
-				nn = toLength(n);
-			for (let i = 0; i < nn; i++) {
-				yield ns + i;
+
+		xnat: (start = 0) => function*(count) {
+			const nStart = toLength(start),
+				nCount = toLength(count);
+			for (let i = 0; i < nCount; i++) {
+				yield nStart + i;
 			}
 		},
-		nat: n => G.xnat(0)(n),
-		xnatrev: (s = 0) => function*(n) {
-			const ns = toLength(s),
-				nn = toLength(n);
-			for (let i = 0; i < nn; i++) {
-				yield ns + (nn - 1) - i;
+		nat: count => G.xnat()(count),
+		xnatrev: (start = 0) => function*(count) {
+			const nStart = toLength(start),
+				nCount = toLength(count);
+			for (let i = 0; i < nCount; i++) {
+				yield nStart + (nCount - 1) - i;
 			}
 		},
-		natrev: n => G.xnatrev(0)(n),
-		xneg: (s = -1) => function*(n) {
-			const ns = toLength(s),
-				nn = toLength(n);
-			for (let i = 0; i < nn; i++) {
-				yield ns - i;
+		natrev: count => G.xnatrev()(count),
+		xneg: (start = -1) => function*(count) {
+			const nStart = toLength(start),
+				nCount = toLength(count);
+			for (let i = 0; i < nCount; i++) {
+				yield nStart - i;
 			}
 		},
-		neg: n => G.xneg(-1)(n),
-		xnegrev: (s = -1) => function*(n) {
-			const ns = toLength(s),
-				nn = toLength(n);
-			for (let i = 0; i < nn; i++) {
-				yield ns - (nn - 1) + i;
+		neg: count => G.xneg()(count),
+		xnegrev: (start = -1) => function*(count) {
+			const nStart = toLength(start),
+				nCount = toLength(count);
+			for (let i = 0; i < nCount; i++) {
+				yield nStart - (nCount - 1) + i;
 			}
 		},
-		negrev: n => G.xnegrev(-1)(n),
+		negrev: count => G.xnegrev()(count),
+
 		regexec: (re, cb, thisArg) => function*(string) {
 			if (isRegExp(re)) {
 				const n = string.length;
@@ -186,6 +185,7 @@ D(G)
 				}
 			}
 		},
+
 		iterate: (cb, thisArg) => function*(x) {
 			let y = x,
 				i = 0;
@@ -200,9 +200,9 @@ D(G)
 				yield x;
 			}
 		},
-		replicate: n => function*(x) {
-			const nn = toLength(n);
-			for (let i = 0; i < nn; i++) {
+		replicate: count => function*(x) {
+			const nCount = toLength(count);
+			for (let i = 0; i < nCount; i++) {
 				yield x;
 			}
 		},
@@ -211,9 +211,10 @@ D(G)
 				yield* genF.apply(thisArg, arguments);
 			}
 		},
-		fork: (n = 2) => (genF, thisArg) => function*() {
-			yield* G.nat(n).map(i => genF.apply(thisArg, arguments));
+		fork: (count = 2) => (genF, thisArg) => function() {
+			return G.nat(count).map(_ => genF.apply(thisArg, arguments));
 		},
+
 		forEach: (cb, thisArg) => xgen => {
 			let i = 0;
 			for (let x of xgen) {
@@ -232,10 +233,12 @@ D(G)
 				yield* cb.call(thisArg, x, i++, xgen);
 			}
 		},
-		select: (...keys) => function*(xgen) {
-			for (let x of xgen) {
-				yield keys.map(key => x[key]);
-			}
+		arraySelect(...indexes) {
+			return G.map(x => indexes.map(i => x[i]));
+		},
+		objectSelect(...keys) {
+			return G.map(x => keys.reduce(
+				(ob, key) => (ob[key] = x[key], ob), {}));
 		},
 		find: (cb, thisArg) => xgen => {
 			let i = 0;
@@ -295,16 +298,11 @@ D(G)
 			}
 			return y;
 		},
-		concat: function*(...genArray) {
-			for (let gen of genArray) {
-				yield* gen;
-			}
+		concat(...genArray) {
+			return G.collapse(G.create(genArray));
 		},
-		concatMap: (cb, thisArg) => function*(xgen) {
-			let i = 0;
-			for (let x of xgen) {
-				yield* cb.call(thisArg, x, i++, xgen);
-			}
+		concatMap: (cb, thisArg) => xgen => {
+			return G.flatMap(xgen)(cb, thisArg);
 		},
 		fold: (cb, thisArg) => initVal => xgen => {
 			let y = initValue,
@@ -342,19 +340,19 @@ D(G)
 				yield y;
 			}
 		},
-		take: n => function*(xgen) {
-			const nn = toLength(n);
+		take: count => function*(xgen) {
+			const nCount = toLength(n);
 			let i = 0;
 			for (let x of xgen) {
-				if (i++ < nn) yield x;
+				if (i++ < nCount) yield x;
 				else break;
 			}
 		},
-		drop: n => function*(xgen) {
-			const nn = toLength(n);
+		drop: count => function*(xgen) {
+			const nCount = toLength(n);
 			let i = 0;
 			for (let x of xgen) {
-				if (i < nn) {
+				if (i < nCount) {
 					++i;
 					continue;
 				} else {
@@ -408,19 +406,22 @@ D(G)
 						if (x.done) return;
 						else xs[i] = x.value;
 					}
-					yield cb.call(thisArg, ...xs, j++, ...genArray);
+					yield cb.call(thisArg, xs, j++, genArray);
 				}
 			}
 		},
-		group: (cb, thisArg) => xgen => {
-			return G.group2([])(cb, thisArg)(xgen);
+		arrayGroup(cb, thisArg) {
+			return G.group([])(cb, thisArg);
 		},
-		group2: (container = []) => (cb, thisArg) => xgen => {
-			const get = M.forceArrayGet(container, _ => []);
+		objectGroup(cb, thisArg) {
+			return G.group({})(cb, thisArg);
+		},
+		group: (container) => (cb, thisArg) => xgen => {
+			const get = M.forceArrayGet(container);
 			let i = 0;
 			for (let x of xgen) {
-				const groupKey = cb.call(thisArg, x, i++, xgen);
-				get(groupKey).push(x);
+				const key = cb.call(thisArg, x, i++, xgen);
+				get(key, _ => []).push(x);
 			}
 			return container;
 		},
@@ -498,8 +499,11 @@ D(G.prototype)
 		flatMap(cb, thisArg) {
 			return G.flatMap(this)(cb, thisArg);
 		},
-		select(...keys) {
-			return G.select(...keys)(this);
+		arraySelect(...indexes) {
+			return G.arraySelect(...indexes)(this);
+		},
+		objectSelect(...keys) {
+			return G.objectSelect(...keys)(this);
 		},
 		find(cb, thisArg) {
 			return G.find(cb, thisArg)(this);
@@ -543,11 +547,11 @@ D(G.prototype)
 		scan1(cb, thisArg) {
 			return G.scan1(cb, thisArg)(this);
 		},
-		take(n) {
-			return G.take(n)(this);
+		take(count) {
+			return G.take(count)(this);
 		},
-		drop(n) {
-			return G.drop(n)(this);
+		drop(count) {
+			return G.drop(count)(this);
 		},
 		takeWhile(cb, thisArg) {
 			return G.takeWhile(cb, thisArg)(this);
@@ -561,11 +565,14 @@ D(G.prototype)
 		zipWith(cb, thisArg) {
 			return (...genArray) => G.zipWith(cb, thisArg)(this, ...genArray);
 		},
-		group(cb, thisArg) {
-			return G.group(cb, thisArg)(this);
+		arrayGroup(cb, thisArg) {
+			return G.arrayGroup(cb, thisArg)(this);
 		},
-		group2(container = []) {
-			return (cb, thisArg) => G.group2(container)(cb, thisArg)(this);
+		objectGroup(cb, thisArg) {
+			return G.objectGroup(cb, thisArg)(this);
+		},
+		group: container => (cb, thisArg) => {
+			return G.group(container)(cb, thisArg)(this);
 		},
 		collapse() {
 			return G.collapse(this);
