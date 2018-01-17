@@ -149,44 +149,48 @@ D(G)
 			if (nLineWidth < 1) {
 				yield string;
 			} else {
-				const nIndentWidth = toLength(Math.abs(indentWidth)),
-					indentString = indentChar.repeat(nIndentWidth),
-					isHangingIndent = indentWidth >= 0;
+				const isHangingIndent = indentWidth >= 0,
+					nIndentWidth = toLength(Math.abs(indentWidth)),
+					indentString = indentChar.repeat(nIndentWidth);
 				let toWrap = string,
+					toYield = null,
 					width = isHangingIndent ? nLineWidth : nLineWidth - nIndentWidth,
 					isFirstLine = true;
 				const update = (wrapped, rest) => {
-					toWrap = rest;
 					if (isFirstLine) {
+						[toYield, width] = isHangingIndent ?
+							[wrapped, nLineWidth - nIndentWidth] :
+							[indentString + wrapped, nLineWidth];
 						isFirstLine = false;
-						width = isHangingIndent ? nLineWidth - nIndentWidth : nLineWidth;
-						return isHangingIndent ? wrapped : indentString + wrapped;
 					} else {
-						return isHangingIndent ? indentString + wrapped : wrapped;
+						toYield = isHangingIndent ? indentString + wrapped : wrapped;
 					}
+					toWrap = rest;
 				};
 				while (true) {
 					const n = toWrap.length;
 					if (n == 0) {
 						break;
 					} else if (n < width) {
-						yield update(toWrap);
+						update(toWrap);
+						yield toYield;
 						break;
-					} else {
-						let lastSP = n;
-						while (lastSP > width) {
-							lastSP = toWrap.lastIndexOf(" ", lastSP - 1);
-						}
-						if (lastSP < 0) {
-							yield update(
-								toWrap.substring(0, width),
-								toWrap.substring(width));
-						} else {
-							yield update(
-								toWrap.substring(0, lastSP),
-								toWrap.substring(lastSP + 1));
-						}
 					}
+
+					let lastSP = n;
+					while (lastSP > width) {
+						lastSP = toWrap.lastIndexOf(" ", lastSP - 1);
+					}
+					if (lastSP < 0) {
+						update(
+							toWrap.substring(0, width),
+							toWrap.substring(width));
+					} else {
+						update(
+							toWrap.substring(0, lastSP),
+							toWrap.substring(lastSP + 1));
+					}
+					yield toYield;
 				}
 			}
 		},
