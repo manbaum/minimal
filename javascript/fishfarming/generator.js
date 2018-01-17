@@ -99,7 +99,7 @@ D(G)
 		},
 
 		xnat: (start = 0) => function*(count) {
-			const nStart = toLength(start),
+			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
 				yield nStart + i;
@@ -107,7 +107,7 @@ D(G)
 		},
 		nat: count => G.xnat()(count),
 		xnatrev: (start = 0) => function*(count) {
-			const nStart = toLength(start),
+			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
 				yield nStart + (nCount - 1) - i;
@@ -115,7 +115,7 @@ D(G)
 		},
 		natrev: count => G.xnatrev()(count),
 		xneg: (start = -1) => function*(count) {
-			const nStart = toLength(start),
+			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
 				yield nStart - i;
@@ -123,7 +123,7 @@ D(G)
 		},
 		neg: count => G.xneg()(count),
 		xnegrev: (start = -1) => function*(count) {
-			const nStart = toLength(start),
+			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
 				yield nStart - (nCount - 1) + i;
@@ -147,13 +147,13 @@ D(G)
 			if (isRegExp(sp)) {
 				let saveIndex = 0,
 					i = 0;
-				yield* G.regexec(re,
+				yield* G.regexec(sp,
 					array => {
 						const s = string.substring(saveIndex, array.index);
 						saveIndex = array.index + array[0].length;
 						return cb ? cb.call(thisArg, s, i++, sp, string) : s;
 					})(string);
-				if (saveIndex < string.length) {
+				if (saveIndex <= string.length) {
 					const s = string.substring(saveIndex);
 					yield cb ? cb.call(thisArg, s, i, sp, string) : s;
 				}
@@ -249,7 +249,7 @@ D(G)
 				yield* genF.apply(thisArg, arguments);
 			}
 		},
-		fork: (genF, thisArg) => count => function*() {
+		fork: count => (genF, thisArg) => function*() {
 			const nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
 				yield* genF.apply(thisArg, arguments);
