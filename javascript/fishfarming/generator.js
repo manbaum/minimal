@@ -98,35 +98,39 @@ D(G)
 			return G.from(it);
 		},
 
-		xnat: (start = 0) => function*(count) {
+		xnat: (start = 0) => function*(count, cb, thisArg) {
 			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
-				yield nStart + i;
+				const n = nStart + i;
+				yield cb ? cb.call(thisArg, n, i) : n;
 			}
 		},
 		nat: count => G.xnat()(count),
-		xnatrev: (start = 0) => function*(count) {
+		xnatrev: (start = 0) => function*(count, cb, thisArg) {
 			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
-				yield nStart + (nCount - 1) - i;
+				const n = nStart + (nCount - 1) - i;
+				yield cb ? cb.call(thisArg, n, i) : n;
 			}
 		},
 		natrev: count => G.xnatrev()(count),
-		xneg: (start = -1) => function*(count) {
+		xneg: (start = -1) => function*(count, cb, thisArg) {
 			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
-				yield nStart - i;
+				const n = nStart - i;
+				yield cb ? cb.call(thisArg, n, i) : n;
 			}
 		},
 		neg: count => G.xneg()(count),
-		xnegrev: (start = -1) => function*(count) {
+		xnegrev: (start = -1) => function*(count, cb, thisArg) {
 			const nStart = toIndex(start),
 				nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
-				yield nStart - (nCount - 1) + i;
+				const n = nStart - (nCount - 1) + i;
+				yield cb ? cb.call(thisArg, n, i) : n;
 			}
 		},
 		negrev: count => G.xnegrev()(count),
