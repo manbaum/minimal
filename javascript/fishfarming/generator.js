@@ -25,19 +25,20 @@ const toIndex = value => {
 }
 const isRegExp = x => x != null && x.constructor === RegExp;
 
-const forceMapGet = map => {
-	const getter = (key, valueMaker) => {
-		if (map.has(key)) {
-			return map.get(key);
+const forceArrayGet = array => {
+	const getter = (index, valueMaker) => {
+		let v = array[index];
+		if (v != null) {
+			return v;
 		} else {
-			const v = valueMaker();
-			map.set(key, v);
+			v = valueMaker();
+			array[index] = v;
 			return v;
 		}
 	};
 	D(getter)
 		.freeze({
-			map
+			array
 		});
 	return getter;
 };
