@@ -1,5 +1,7 @@
 "use strict"
 
+console.log("* Loading generator.js ...");
+
 const util = require("util"),
 	D = require("./property"),
 	M = require("./memoize");
@@ -22,7 +24,7 @@ const toIndex = value => {
 	let len = toInteger(value);
 	return Math.min(Math.max(len, Number.MIN_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
 }
-const isRegExp = x => x && x.constructor === RegExp;
+const isRegExp = x => x != null && x.constructor === RegExp;
 
 const nil = function*() {};
 const GeneratorFunction = nil.constructor;
@@ -40,23 +42,22 @@ const toArrayRecursive = x => {
 D(G)
 	.method({
 		isGenerator(gen) {
-			return gen && gen.constructor === G;
+			return gen != null && gen.constructor === G;
 		},
 		isIterable(it) {
-			return it && util.isFunction(it[Symbol.iterator]);
+			return it != null && util.isFunction(it[Symbol.iterator]);
 		},
 		isArrayLike(it) {
-			return it && "length" in Object(it);
+			return it != null && it.hasOwnProperty("length");
 		},
 		isGeneratorFunction(genF) {
-			return genF && genF.constructor === GeneratorFunction;
+			return genF != null && genF.constructor === GeneratorFunction;
 		},
 
 		nil,
 		create: function*(it) {
-			if (!it) return;
 			if (G.isIterable(it)) {
-				yield* it;
+				yield* Object(it);
 			} else if (G.isArrayLike(it)) {
 				let items = Object(it),
 					n = toLength(items.length);
@@ -69,8 +70,12 @@ D(G)
 			yield* arguments;
 		},
 		from(it, cb, thisArg) {
-			const gen = G.isGenerator(it) ? it : G.create(it);
-			return cb ? G.map(cb, thisArg)(gen) : gen;
+			if (it == null) {
+				return G.nil();
+			} else {
+				const gen = G.isGenerator(it) ? it : G.create(it);
+				return cb ? G.map(cb, thisArg)(gen) : gen;
+			}
 		},
 		from1(it) {
 			return G.from(it);
@@ -384,10 +389,11 @@ D(G)
 		zip: function*(...genArray) {
 			const n = genArray.length;
 			if (n > 0) {
+				const array = genArray.map(G.from1);
 				while (true) {
 					const xs = Array(n);
 					for (let i = 0; i < n; i++) {
-						const x = genArray[i].next();
+						const x = array[i].next();
 						if (x.done) return;
 						else xs[i] = x.value;
 					}
@@ -398,11 +404,12 @@ D(G)
 		zipWith: (cb, thisArg) => function*(...genArray) {
 			const n = genArray.length;
 			if (n > 0) {
+				const array = genArray.map(G.from1);
 				let j = 0;
 				while (true) {
 					const xs = Array(n);
 					for (let i = 0; i < n; i++) {
-						const x = genArray[i].next();
+						const x = array[i].next();
 						if (x.done) return;
 						else xs[i] = x.value;
 					}
@@ -465,6 +472,21 @@ D(G)
 				array.length = i;
 			}
 			return array;
+		},
+		uniq: function*(xgen, cb, thisArg) {
+			const set = new Set();
+			let i = 0;
+			for (let x of xgen) {
+				const y = cb ? cb.call(this.Arg, x, i++, xgen) : x;
+				if (!set.has(y)) {
+					set.add(y);
+					yield y;
+				}
+			}
+			set.clear();
+		},
+		uniq1: function(xgen) {
+			return G.uniq(xgen);
 		}
 	});
 
@@ -588,6 +610,9 @@ D(G.prototype)
 		},
 		fill(array, retainLength = true, cb, thisArg) {
 			return G.fill(array, retainLength, cb, thisArg)(this);
+		},
+		uniq(cb, thisArg) {
+			return G.uniq(this, cb, thisArg);
 		}
 	});
 
