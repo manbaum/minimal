@@ -15,6 +15,22 @@ const fix = (n, padding = "0") => {
 	};
 };
 
+const removeModule = s => {
+	const moduleId = require.resolve(s);
+	const i = module.children.findIndex(m => m.id == moduleId);
+	if (i >= 0) {
+		module.children.splice(i, 1);
+		console.log(`* Ok, module "${s}" has been removed from module.children.`);
+	} else {
+		console.log(`* OMG, Why module "${s}" does not exist in module.children?`);
+	}
+	if (require.cache[moduleId]) {
+		delete require.cache[moduleId];
+		console.log(`* Ok, module "${s}" has been removed from require.cache.`);
+	} else {
+		console.log(`* WTF! Are you sure that module "${s}" has been loaded, ever?`);
+	}
+};
 
 D(Function.prototype)
 	.method({
