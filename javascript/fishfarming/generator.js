@@ -126,23 +126,24 @@ D(G)
 				}
 			}
 		},
-		split: (sp, cb, thisArg) => function*(string) {
-			const re = isRegExp(sp) ? sp : new RegExp(sp, "g");
-			let saveIndex = 0,
-				i = 0;
-			yield* G.regexec(re,
-				array => {
-					const s = string.substring(saveIndex, array.index);
-					saveIndex = array.index + array[0].length;
-					return cb ? cb.call(thisArg, s, i++, sp, string) : s;
-				})(string);
-			if (saveIndex < string.length) {
-				const s = string.substring(saveIndex);
-				yield cb ? cb.call(thisArg, s, i, sp, string) : s;
+		regsplit: (sp, cb, thisArg) => function*(string) {
+			if (isRegExp(sp)) {
+				let saveIndex = 0,
+					i = 0;
+				yield* G.regexec(re,
+					array => {
+						const s = string.substring(saveIndex, array.index);
+						saveIndex = array.index + array[0].length;
+						return cb ? cb.call(thisArg, s, i++, sp, string) : s;
+					})(string);
+				if (saveIndex < string.length) {
+					const s = string.substring(saveIndex);
+					yield cb ? cb.call(thisArg, s, i, sp, string) : s;
+				}
 			}
 		},
 		splitLine(lineSP = /\r\n|\n|\r/g, cb, thisArg) {
-			return G.split(lineSP, cb, thisArg);
+			return G.regsplit(lineSP, cb, thisArg);
 		},
 		wrapLine: (lineWidth = 40, indentWidth = 0, indentChar = " ") => function*(string) {
 			const nLineWidth = toLength(lineWidth);
@@ -195,13 +196,24 @@ D(G)
 			}
 		},
 
-		iterate: (cb, thisArg) => function*(x) {
-			let y = x,
+		iterate: (cb, thisArg) => function*(initVal, yieldInitVal = true) {
+			let x = initVal,
 				i = 0;
-			yield y;
+			if (yieldInitVal) yield x;
 			while (true) {
-				y = cb.call(thisArg, y, i++);
-				yield y;
+				x = cb.call(thisArg, x, i++);
+				yield x;
+			}
+		},
+		iterateWhile: (cond, condThis) => (cb, thisArg) => function*(initVal, yieldInitVal = true) {
+			let x = initVal,
+				i = 0;
+			if (yieldInitVal) yield x;
+			while (true) {
+				x = cb.call(thisArg, x, i);
+				if (cond.call(condThis, x, i)) yield x;
+				else break;
+				++i;
 			}
 		},
 		repeat: function*(x) {
@@ -220,8 +232,11 @@ D(G)
 				yield* genF.apply(thisArg, arguments);
 			}
 		},
-		fork: (count = 2) => (genF, thisArg) => function() {
-			return G.nat(count).map(_ => genF.apply(thisArg, arguments));
+		fork: (genF, thisArg) => count => function() {
+			const nCount = toLength(count);
+			for (let i = 0; i < nCount; i++) {
+				yield* genF.apply(thisArg, arguments);
+			}
 		},
 
 		forEach: (cb, thisArg) => xgen => {
@@ -314,7 +329,7 @@ D(G)
 			return G.flatMap(xgen)(cb, thisArg);
 		},
 		fold: (cb, thisArg) => initVal => xgen => {
-			let y = initValue,
+			let y = initVal,
 				i = 0;
 			for (let x of xgen) {
 				y = cb.call(thisArg, y, x, i++, xgen);
@@ -461,7 +476,22 @@ D(G)
 			}
 			return string;
 		},
-		fill: (array, retainLength = true, cb, thisArg) => xgen => {
+		fill: (array, retainLength) => xgen => {
+			const n = array.length;
+			let i = 0;
+			for (let x of xgen) {
+				if (!retainLength || i < n) {
+					array[i++] = x;
+				} else {
+					break;
+				}
+			}
+			if (!retainLength) {
+				array.length = i;
+			}
+			return array;
+		},
+		fillWith: (cb, thisArg) => (array, retainLength) => xgen {
 			const n = array.length;
 			let i = 0;
 			for (let x of xgen) {
@@ -502,8 +532,11 @@ D(Array.prototype)
 		setLength(n) {
 			this.length = toLength(n);
 		},
-		fillWith(xgen, retainLength = true) {
+		fill(xgen, retainLength) {
 			return G.fill(this, retainLength)(xgen);
+		},
+		fillWith(cb, thisArg) {
+			return (xgen, retainLength) => G.fillWith(cb, thisArg)(this, retainLength)(xgen);
 		},
 		updateEach(cb, thisArg) {
 			const n = this.length;
@@ -568,7 +601,7 @@ D(G.prototype)
 			return arguments.length < 2 ? G.fold1(cb)(this) : G.fold(cb)(initVal)(this);
 		},
 		scan(cb, thisArg) {
-			return (initVal, yieldInitVal = true) => G.scan(cb, thisArg)(initVal, yieldInitValue)(this);
+			return (initVal, yieldInitVal = true) => G.scan(cb, thisArg)(initVal, yieldInitVal)(this);
 		},
 		scan1(cb, thisArg) {
 			return G.scan1(cb, thisArg)(this);
@@ -612,8 +645,11 @@ D(G.prototype)
 		join(sp, cb, thisArg) {
 			return G.join(sp, cb, thisArg)(this);
 		},
-		fill(array, retainLength = true, cb, thisArg) {
-			return G.fill(array, retainLength, cb, thisArg)(this);
+		fill(array, retainLength) {
+			return G.fill(array, retainLength)(this);
+		},
+		fillWith(cb, thisArg) {
+			return (array, retainLength) => G.fillWith(cb, thisArg)(array, retainLength)(this);
 		},
 		uniq(cb, thisArg) {
 			return G.uniq(this, cb, thisArg);
