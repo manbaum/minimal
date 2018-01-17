@@ -543,6 +543,25 @@ D(G)
 		},
 		uniq1: function(xgen) {
 			return G.uniq(xgen);
+		},
+		gapply: fgen => function*(xgen) {
+			const xs = G.toArray(xgen);
+			if (xs.length > 0) {
+				for (let f of fgen) {
+					for (let x of xs) {
+						yield f(x);
+					}
+				}
+			}
+		},
+		mappend: xgen => function*(ygen) {
+			yield* xgen;
+			yield* ygen;
+		},
+		mconcat: function*(genArray) {
+			for (let gen of genArray) {
+				yield* gen;
+			}
 		}
 	});
 
@@ -675,6 +694,15 @@ D(G.prototype)
 		},
 		uniq(cb, thisArg) {
 			return G.uniq(this, cb, thisArg);
+		},
+		gapply(xgen) {
+			return G.gapply(this)(xgen);
+		},
+		mappend(ygen) {
+			return G.mappend(this)(ygen);
+		},
+		mconcat(genArray) {
+			return G.mconcat([this, ...genArray]);
 		}
 	});
 
