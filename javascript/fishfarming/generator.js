@@ -249,7 +249,7 @@ D(G)
 				yield* genF.apply(thisArg, arguments);
 			}
 		},
-		fork: (genF, thisArg) => count => function() {
+		fork: (genF, thisArg) => count => function*() {
 			const nCount = toLength(count);
 			for (let i = 0; i < nCount; i++) {
 				yield* genF.apply(thisArg, arguments);
@@ -344,7 +344,7 @@ D(G)
 				yield* xgen;
 			}
 		},
-		concatMap: (cb, thisArg) => function*(xgen) => {
+		concatMap: (cb, thisArg) => function*(xgen) {
 			let i = 0;
 			for (let x of xgen) {
 				yield* cb.call(thisArg, x, i++, xgen);
@@ -387,7 +387,7 @@ D(G)
 			}
 		},
 		take: count => function*(xgen) {
-			const nCount = toLength(n);
+			const nCount = toLength(count);
 			let i = 0;
 			for (let x of xgen) {
 				if (i++ < nCount) yield x;
@@ -395,7 +395,7 @@ D(G)
 			}
 		},
 		drop: count => function*(xgen) {
-			const nCount = toLength(n);
+			const nCount = toLength(count);
 			let i = 0;
 			for (let x of xgen) {
 				if (i < nCount) {
@@ -487,7 +487,7 @@ D(G)
 		toArrayRecursive(xgen) {
 			return Array.from(xgen, toArrayRecursive);
 		},
-		join: (sp, cb, thisArg) => xgen => {
+		join: (sp = ",", cb, thisArg) => xgen => {
 			let string = "",
 				i = 0,
 				first = true;
@@ -513,7 +513,7 @@ D(G)
 			}
 			return array;
 		},
-		fillWith: (cb, thisArg) => (array, retainLength) => xgen {
+		fillWith: (cb, thisArg) => (array, retainLength) => xgen => {
 			const n = array.length;
 			let i = 0;
 			for (let x of xgen) {
@@ -652,8 +652,8 @@ D(G.prototype)
 		objectGroup(cb, thisArg) {
 			return G.objectGroup(cb, thisArg)(this);
 		},
-		group: container => (cb, thisArg) => {
-			return G.group(container)(cb, thisArg)(this);
+		group(container) {
+			return (cb, thisArg) => G.group(container)(cb, thisArg)(this);
 		},
 		collapse() {
 			return G.collapse(this);
@@ -664,7 +664,7 @@ D(G.prototype)
 		toArrayRecursive() {
 			return G.toArrayRecursive(this);
 		},
-		join(sp, cb, thisArg) {
+		join(sp = ",", cb, thisArg) {
 			return G.join(sp, cb, thisArg)(this);
 		},
 		fill(array, retainLength) {
