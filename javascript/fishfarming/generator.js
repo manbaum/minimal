@@ -3,8 +3,7 @@
 console.log("* Loading generator.js ...");
 
 const util = require("util"),
-	D = require("./property"),
-	M = require("./memoize");
+	D = require("./property");
 
 const toInteger = value => {
 	let number = Number(value);
@@ -25,6 +24,23 @@ const toIndex = value => {
 	return Math.min(Math.max(len, Number.MIN_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
 }
 const isRegExp = x => x != null && x.constructor === RegExp;
+
+const forceMapGet = map => {
+	const getter = (key, valueMaker) => {
+		if (map.has(key)) {
+			return map.get(key);
+		} else {
+			const v = valueMaker();
+			map.set(key, v);
+			return v;
+		}
+	};
+	D(getter)
+		.freeze({
+			map
+		});
+	return getter;
+};
 
 const nil = function*() {};
 const GeneratorFunction = nil.constructor;
@@ -322,11 +338,16 @@ D(G)
 			}
 			return y;
 		},
-		concat(...genArray) {
-			return G.collapse(G.create(genArray));
+		concat: function*(...genArray) {
+			for (let xgen of genArray) {
+				yield* xgen;
+			}
 		},
-		concatMap: (cb, thisArg) => xgen => {
-			return G.flatMap(xgen)(cb, thisArg);
+		concatMap: (cb, thisArg) => function*(xgen) => {
+			let i = 0;
+			for (let x of xgen) {
+				yield* cb.call(thisArg, x, i++, xgen);
+			}
 		},
 		fold: (cb, thisArg) => initVal => xgen => {
 			let y = initVal,
@@ -443,7 +464,7 @@ D(G)
 			return G.group({})(cb, thisArg);
 		},
 		group: (container) => (cb, thisArg) => xgen => {
-			const get = M.forceArrayGet(container);
+			const get = forceArrayGet(container);
 			let i = 0;
 			for (let x of xgen) {
 				const key = cb.call(thisArg, x, i++, xgen);
