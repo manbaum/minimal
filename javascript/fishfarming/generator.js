@@ -166,36 +166,40 @@ D(G)
 		splitLine(lineSP = /\r\n|\n|\r/g, cb, thisArg) {
 			return G.regsplit(lineSP, cb, thisArg);
 		},
-		wrapLine: (lineWidth = 40, indentWidth = 0, indentChar = " ") => function*(string) {
-			const nLineWidth = toLength(lineWidth);
+		wrapLine: (lineWidth = 40, indentWidth = 0, indentMode = 1, indentChar = " ") => function*(string) {
+			const nLineWidth = toLength(lineWidth),
+				nIndentWidth = toLength(indentWidth),
+				indentString = indentChar.repeat(nIndentWidth);
+			const checkIndent = isFirstLine => {
+				if (nIndentWidth == 0) return false;
+				switch (indentMode) {
+					case 1: // Hanging Indent
+						return !isFirstLine;
+						break;
+					case 2: // First-Line Indent
+						return isFirstLine;
+						break;
+					default: // Indent every line
+						return true;
+						break;
+				}
+			};
 			if (nLineWidth < 1) {
-				yield string;
+				yield checkIndent(true) ? indentString + string : string;
 			} else {
-				const isHangingIndent = indentWidth >= 0,
-					nIndentWidth = toLength(Math.abs(indentWidth)),
-					indentString = indentChar.repeat(nIndentWidth);
 				let toWrap = string,
 					toYield = null,
-					width = isHangingIndent ? nLineWidth : nLineWidth - nIndentWidth,
-					isFirstLine = true;
-				const update = (wrapped, rest) => {
-					if (isFirstLine) {
-						[toYield, width] = isHangingIndent ?
-							[wrapped, nLineWidth - nIndentWidth] :
-							[indentString + wrapped, nLineWidth];
-						isFirstLine = false;
-					} else {
-						toYield = isHangingIndent ? indentString + wrapped : wrapped;
-					}
-					toWrap = rest;
-				};
+					isFirstLine = true,
+					needIndent = checkIndent(true),
+					width = needIndent ? nLineWidth - nIndentWidth : nLineWidth;
 				while (true) {
 					const n = toWrap.length;
 					if (n == 0) {
 						break;
-					} else if (n < width) {
-						update(toWrap);
-						yield toYield;
+					}
+
+					if (n < width) {
+						yield needIndent ? indentString + toWrap : toWrap;
 						break;
 					}
 
@@ -204,15 +208,19 @@ D(G)
 						lastSP = toWrap.lastIndexOf(" ", lastSP - 1);
 					}
 					if (lastSP < 0) {
-						update(
-							toWrap.substring(0, width),
-							toWrap.substring(width));
+						toYield = toWrap.substring(0, width);
+						toWrap = toWrap.substring(width);
 					} else {
-						update(
-							toWrap.substring(0, lastSP),
-							toWrap.substring(lastSP + 1));
+						toYield = toWrap.substring(0, lastSP);
+						toWrap = toWrap.substring(lastSP + 1);
 					}
-					yield toYield;
+					yield needIndent ? indentString + toYield : toYield;
+
+					if (isFirstLine) {
+						isFirstLine = false;
+						needIndent = checkIndent(false);
+						width = needIndent ? nLineWidth - nIndentWidth : nLineWidth;
+					}
 				}
 			}
 		},
