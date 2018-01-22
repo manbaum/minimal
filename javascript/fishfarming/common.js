@@ -15,7 +15,7 @@ const fix = (n, padding = "0") => {
 	};
 };
 
-const removeModule = s => {
+const removeModulee = s => {
 	const moduleId = require.resolve(s);
 	const i = module.children.findIndex(m => m.id == moduleId);
 	if (i >= 0) {
