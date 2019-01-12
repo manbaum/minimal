@@ -1,7 +1,5 @@
 package com.bocsoft.bfw.queue;
 
-import java.util.Properties;
-
 /**
  * Class QProducerFactory.
  * <p>
@@ -11,5 +9,9 @@ import java.util.Properties;
  */
 public interface QProducerFactory<K, V> {
 
-    QProducer<K, V> create(Properties props);
+    QProducer<K, V> create(String topic, Integer partition);
+
+    default QProducer<K, V> create(String topic) {
+        return create(topic, null);
+    }
 }

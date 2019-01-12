@@ -12,13 +12,17 @@ import java.util.concurrent.Future;
  */
 public interface QProducer<K, V> {
 
+    String topic();
+
+    Integer partition();
+
     void close();
 
     void close(Duration timeout);
 
     void flush();
 
-    Future<QRecordMetadata> send(QProducerRecord<K, V> qRecord);
+    Future<QRecordMetadata> send(K key, V value);
 
-    Future<QRecordMetadata> send(QProducerRecord<K, V> qRecord, QSendCallback qCallback);
+    Future<QRecordMetadata> send(K key, V value, QSendCallback qCallback);
 }

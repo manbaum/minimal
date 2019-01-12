@@ -1,6 +1,7 @@
 package com.bocsoft.bfw.queue.boot;
 
 import com.bocsoft.bfw.queue.QConsumerRecord;
+import com.bocsoft.bfw.queue.QRecordHandler;
 
 /**
  * Interface QSimpleHandler.
@@ -9,7 +10,7 @@ import com.bocsoft.bfw.queue.QConsumerRecord;
  * @author manbaum
  * @since Jan 11, 2019
  */
-public interface QSimpleHandler<K, V> extends QHandler<K, V> {
+public interface QSimpleHandler<K, V> extends QRecordHandler<K, V> {
 
     void process(K key, V value);
 

@@ -48,7 +48,7 @@ public final class KafkaQWrapper {
 
     public static Map<QTopicPartition, QOffsetAndMetadata> of(Map<TopicPartition, OffsetAndMetadata> offsets) {
         final HashMap<QTopicPartition, QOffsetAndMetadata> map = new HashMap<>(offsets.size());
-        for(TopicPartition partition : offsets.keySet()) {
+        for (TopicPartition partition : offsets.keySet()) {
             final QTopicPartition qPartition = KafkaQWrapper.of(partition);
             final QOffsetAndMetadata qOffsetAndMeta = KafkaQWrapper.of(offsets.get(partition));
             map.put(qPartition, qOffsetAndMeta);

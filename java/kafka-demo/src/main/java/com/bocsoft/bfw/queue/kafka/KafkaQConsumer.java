@@ -3,7 +3,6 @@ package com.bocsoft.bfw.queue.kafka;
 import com.bocsoft.bfw.queue.QConsumer;
 import com.bocsoft.bfw.queue.QConsumerRecords;
 import com.bocsoft.bfw.queue.QOffsetCommitCallback;
-import com.bocsoft.bfw.queue.QTopicPartition;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 
@@ -22,9 +21,11 @@ public class KafkaQConsumer<K, V> implements QConsumer<K, V> {
     private final KafkaConsumer<K, V> consumer;
     private final TopicPartition partition;
 
-    public KafkaQConsumer(KafkaConsumer<K, V> consumer, QTopicPartition qPartition) {
+    public KafkaQConsumer(KafkaConsumer<K, V> consumer, String topic, Integer partition) {
         this.consumer = consumer;
-        this.partition = KafkaQUnwrapper.of(qPartition);
+        this.partition = new TopicPartition(topic, partition);
+        // 绑定 topic 和 partition
+        this.consumer.assign(Collections.singleton(this.partition));
     }
 
     @Override

@@ -21,7 +21,6 @@ public class KafkaPartitionerAdapter implements Partitioner {
 
     @Override
     public void close() {
-
     }
 
     @Override

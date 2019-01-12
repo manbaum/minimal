@@ -1,7 +1,5 @@
 package com.bocsoft.bfw.queue;
 
-import java.util.Properties;
-
 /**
  * Interface QConsumerFactory.
  * <p>
@@ -11,13 +9,5 @@ import java.util.Properties;
  */
 public interface QConsumerFactory<K, V> {
 
-    QConsumer<K, V> create(Properties props, QTopicPartition qPartition);
-
-    default QConsumer<K, V> create(Properties props, String topic, Integer partition) {
-        return create(props, new SimpleQTopicPartition(topic, partition));
-    }
-
-    default QConsumer<K, V> create(Properties props, String topic) {
-        return create(props, new SimpleQTopicPartition(topic));
-    }
+    QConsumer<K, V> create(String topic, Integer partition);
 }

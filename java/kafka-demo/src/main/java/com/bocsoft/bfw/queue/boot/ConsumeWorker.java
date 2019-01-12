@@ -1,7 +1,6 @@
 package com.bocsoft.bfw.queue.boot;
 
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 /**
  * Class ConsumeWorker.

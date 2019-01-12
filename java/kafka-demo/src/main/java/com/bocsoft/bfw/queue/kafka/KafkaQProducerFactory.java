@@ -1,10 +1,9 @@
 package com.bocsoft.bfw.queue.kafka;
 
-import com.bocsoft.bfw.queue.QProducerFactory;
+import com.bocsoft.bfw.queue.HasQConfig;
 import com.bocsoft.bfw.queue.QProducer;
+import com.bocsoft.bfw.queue.QProducerFactory;
 import org.apache.kafka.clients.producer.KafkaProducer;
-
-import java.util.Properties;
 
 /**
  * Class KafkaQProducerFactory.
@@ -13,11 +12,10 @@ import java.util.Properties;
  * @author manbaum
  * @since Jan 09, 2019
  */
-public final class KafkaQProducerFactory<K, V> implements QProducerFactory<K, V> {
+public final class KafkaQProducerFactory<K, V> extends HasQConfig implements QProducerFactory<K, V> {
 
     @Override
-    public QProducer<K, V> create(Properties props) {
-        final KafkaProducer<K, V> producer = new KafkaProducer<>(props);
-        return new KafkaQProducer<>(producer);
+    public QProducer<K, V> create(String topic, Integer partition) {
+        return new KafkaQProducer<>(new KafkaProducer<>(properties()), topic, partition);
     }
 }
