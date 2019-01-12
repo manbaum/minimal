@@ -7,7 +7,7 @@ package com.bocsoft.bfw.queue;
  * @author manbaum
  * @since Jan 11, 2019
  */
-public interface QRecordHandler<K, V> {
+public interface QRecordHandler<K, V, CTX> {
 
-    void process(QConsumerRecord<K, V> record);
+    void process(QConsumerRecord<K, V> record, CTX context);
 }

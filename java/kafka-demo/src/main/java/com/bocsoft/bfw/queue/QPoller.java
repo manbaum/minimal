@@ -12,14 +12,15 @@ import java.time.Duration;
  * @author manbaum
  * @since Jan 11, 2019
  */
-public class QPoller<K, V> implements Runnable {
+public class QPoller<K, V, CTX> implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(QPoller.class);
 
     private final QConsumer<K, V> consumer;
+    protected final CTX context;
 
-    private QRecordHandler<K, V> handler;
-    private QErrorHandler<K, V> errorHandler;
+    private QRecordHandler<K, V, CTX> handler;
+    private QErrorHandler<K, V, CTX> errorHandler;
 
     private long pollTimeout = 100L;
     private long pollIdle = 100L;
@@ -29,24 +30,25 @@ public class QPoller<K, V> implements Runnable {
 
     private volatile boolean shouldStop;
 
-    public QPoller(QConsumer<K, V> consumer) {
+    public QPoller(QConsumer<K, V> consumer, CTX context) {
         this.consumer = consumer;
+        this.context = context;
         this.shouldStop = false;
     }
 
-    public QRecordHandler<K, V> getHandler() {
+    public QRecordHandler<K, V, CTX> getHandler() {
         return handler;
     }
 
-    public void setHandler(QRecordHandler<K, V> handler) {
+    public void setHandler(QRecordHandler<K, V, CTX> handler) {
         this.handler = handler;
     }
 
-    public QErrorHandler<K, V> getErrorHandler() {
+    public QErrorHandler<K, V, CTX> getErrorHandler() {
         return errorHandler;
     }
 
-    public void setErrorHandler(QErrorHandler<K, V> errorHandler) {
+    public void setErrorHandler(QErrorHandler<K, V, CTX> errorHandler) {
         this.errorHandler = errorHandler;
     }
 
@@ -91,7 +93,7 @@ public class QPoller<K, V> implements Runnable {
             if (logEveryRecord) {
                 logger.info(record.toString());
             }
-            handler.process(record);
+            handler.process(record, context);
             consumer.commitSync();
         } catch (Exception ex) {
             handleError(record, ex);
@@ -103,7 +105,7 @@ public class QPoller<K, V> implements Runnable {
             if (logFailedRecord) {
                 logger.error(record.toString());
             }
-            errorHandler.process(consumer, record, exception);
+            errorHandler.process(exception, record, context, consumer);
         } catch (Exception ex) {
             logger.warn("ignored.exception", ex);
         }
@@ -117,6 +119,12 @@ public class QPoller<K, V> implements Runnable {
         }
     }
 
+    protected void batchBegin(QConsumerRecords<K, V> records) {
+    }
+
+    protected void batchEnd(QConsumerRecords<K, V> records) {
+    }
+
     @Override
     public void run() {
         if (handler == null || errorHandler == null) {
@@ -128,7 +136,9 @@ public class QPoller<K, V> implements Runnable {
         while (!shouldStop) {
             final QConsumerRecords<K, V> records = consumer.poll(duration);
             if (records != null && records.count() > 0) {
+                batchBegin(records);
                 records.iterator().forEachRemaining(this::handleRecord);
+                batchEnd(records);
             } else {
                 if (pollIdle > 0) sleep();
             }

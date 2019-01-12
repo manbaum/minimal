@@ -29,15 +29,10 @@
         <property name="maxPoolSize" value="10"/>
     </bean>
 
-    <bean id="q.record.handler" class="com.bocsoft.bfw.queue.demo.BootRecordHandler"/>
-    <bean id="q.error.handler" class="com.bocsoft.bfw.queue.demo.BootErrorHandler"/>
-
     <bean id="q.test" class="com.bocsoft.bfw.queue.demo.BootTest">
         <property name="producerFactory" ref="q.kafka.producer.factory"/>
         <property name="consumerFactory" ref="q.kafka.consumer.factory"/>
         <property name="topic" value="q-test-topic"/>
-        <property name="recordHandler" ref="q.record.handler"/>
-        <property name="errorHandler" ref="q.error.handler"/>
         <property name="executor" ref="q.consumer.executor"/>
     </bean>
 

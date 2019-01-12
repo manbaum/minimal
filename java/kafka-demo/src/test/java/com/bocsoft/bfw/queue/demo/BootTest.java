@@ -2,11 +2,9 @@ package com.bocsoft.bfw.queue.demo;
 
 import com.bocsoft.bfw.queue.QConsumer;
 import com.bocsoft.bfw.queue.QConsumerFactory;
-import com.bocsoft.bfw.queue.QErrorHandler;
 import com.bocsoft.bfw.queue.QPoller;
 import com.bocsoft.bfw.queue.QProducer;
 import com.bocsoft.bfw.queue.QProducerFactory;
-import com.bocsoft.bfw.queue.QRecordHandler;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import java.util.concurrent.ExecutorService;
@@ -24,8 +22,6 @@ public class BootTest {
     private QProducerFactory<String, String> producerFactory;
     private QConsumerFactory<String, String> consumerFactory;
     private String topic;
-    private QRecordHandler<String, String> recordHandler;
-    private QErrorHandler<String, String> errorHandler;
     private ExecutorService executor;
 
     public QProducerFactory<String, String> getProducerFactory() {
@@ -58,22 +54,6 @@ public class BootTest {
 
     public void setTopic(String topic) {
         this.topic = topic;
-    }
-
-    public QRecordHandler<String, String> getRecordHandler() {
-        return recordHandler;
-    }
-
-    public void setRecordHandler(QRecordHandler<String, String> recordHandler) {
-        this.recordHandler = recordHandler;
-    }
-
-    public QErrorHandler<String, String> getErrorHandler() {
-        return errorHandler;
-    }
-
-    public void setErrorHandler(QErrorHandler<String, String> errorHandler) {
-        this.errorHandler = errorHandler;
     }
 
     public static void main(String[] args) {
@@ -109,10 +89,17 @@ public class BootTest {
         }
     }
 
-    private QPoller<String, String> createPoller(QConsumer<String, String> consumer) {
-        final QPoller<String, String> poller = new QPoller<>(consumer);
-        poller.setHandler(recordHandler);
-        poller.setErrorHandler(errorHandler);
+    public void printStatistics(QPoller<?, ?, ?>... pollers) {
+        for (QPoller<?, ?, ?> poller : pollers) {
+            final BootRecordHandler handler = (BootRecordHandler) poller.getHandler();
+            handler.printStatistics();
+        }
+    }
+
+    private QPoller<String, String, Object> createPoller(QConsumer<String, String> consumer) {
+        final QPoller<String, String, Object> poller = new QPoller<>(consumer, null);
+        poller.setHandler(new BootRecordHandler(consumer.topic(), consumer.partition()));
+        poller.setErrorHandler(new BootErrorHandler());
         return poller;
     }
 
@@ -122,8 +109,8 @@ public class BootTest {
         final QProducer<String, String> producer = producerFactory.create(topic);
 
         try {
-            final QPoller<String, String> poller0 = createPoller(consumer0);
-            final QPoller<String, String> poller1 = createPoller(consumer1);
+            final QPoller<?, ?, ?> poller0 = createPoller(consumer0);
+            final QPoller<?, ?, ?> poller1 = createPoller(consumer1);
             final BootSender sender = new BootSender(producer);
 
             sleep(2000L);
@@ -137,6 +124,7 @@ public class BootTest {
             poller1.stop();
 
             joinAll(executor);
+            printStatistics(poller0, poller1);
 
         } finally {
             producer.close();

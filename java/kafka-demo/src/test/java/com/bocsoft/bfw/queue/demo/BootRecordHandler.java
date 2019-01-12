@@ -1,6 +1,5 @@
 package com.bocsoft.bfw.queue.demo;
 
-import com.bocsoft.bfw.queue.QConsumer;
 import com.bocsoft.bfw.queue.QConsumerRecord;
 import com.bocsoft.bfw.queue.QRecordHandler;
 
@@ -13,7 +12,9 @@ import java.util.Calendar;
  * @author manbaum
  * @since Jan 11, 2019
  */
-public class BootRecordHandler implements QRecordHandler<String, String> {
+public class BootRecordHandler implements QRecordHandler<String, String, Object> {
+
+    private final String topicPartition;
 
     private int count = 0;
     private int uncount = 0;
@@ -22,10 +23,13 @@ public class BootRecordHandler implements QRecordHandler<String, String> {
     private long sum = 0L;
     private double avg = 0D;
 
+    public BootRecordHandler(String topic, Integer partition) {
+        this.topicPartition = topic + ":" + partition;
+    }
+
     @Override
-    public void process(QConsumerRecord<String, String> record) {
+    public void process(QConsumerRecord<String, String> record, Object context) {
         final String latency = updateStatistics(record);
-        final String topicPartition = record.topic() + ":" + record.partition();
         System.out.println(record + " " + topicPartition + " " + latency);
     }
 
@@ -46,8 +50,7 @@ public class BootRecordHandler implements QRecordHandler<String, String> {
         }
     }
 
-    public void printStatistics(QConsumer<String, String> consumer) {
-        final String topicPartition = consumer.topic() + ":" + consumer.partition();
+    public void printStatistics() {
         System.out.println("*** Total " + count + " record(s) consumed from " + topicPartition + ".");
         System.out.println("*** Latency statistics: min = " + min + ", max = " + max + ", avg = " + avg);
     }
