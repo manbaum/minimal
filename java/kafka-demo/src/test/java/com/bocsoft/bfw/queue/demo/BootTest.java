@@ -113,9 +113,12 @@ public class BootTest {
             final QPoller<?, ?, ?> poller1 = createPoller(consumer1);
             final BootSender sender = new BootSender(producer);
 
+//            consumer0.seekToBegin();
+//            consumer1.seekToBegin();
+
+            submitAll(executor, poller0, poller1);
             sleep(2000L);
-            System.out.println("*** ALL SET, RUN!!!");
-            submitAll(executor, poller0, poller1, sender);
+            submitAll(executor, sender);
 
             sleep(5000);
             sender.stop();
