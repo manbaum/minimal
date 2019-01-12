@@ -13,6 +13,7 @@ public class BootSender implements Runnable {
 
     private final QProducer<String, String> producer;
     private volatile boolean shouldStop = false;
+    private int count = 0;
 
     public BootSender(QProducer<String, String> producer) {
         this.producer = producer;
@@ -24,14 +25,16 @@ public class BootSender implements Runnable {
 
     @Override
     public void run() {
-        int i = 0;
         while (!shouldStop) {
-            String message = "message(" + i + ")";
+            String message = "message(" + count + ")";
             producer.send(null, message);
             System.out.println("+++ Record produced: " + message + ".");
-            ++i;
+            ++count;
             BootTest.sleep(BootTest.random(0L, 20L));
         }
-        System.out.println("*** Total " + i + " record(s) produced for " + producer.topic() + ".");
+    }
+
+    public void printStatistics() {
+        System.out.println("*** Total " + count + " record(s) produced for " + producer.topic() + ".");
     }
 }

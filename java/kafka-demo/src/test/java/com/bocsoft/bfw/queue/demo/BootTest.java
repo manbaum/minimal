@@ -59,7 +59,7 @@ public class BootTest {
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("/application.xml");
         BootTest app = context.getBean("q.test", BootTest.class);
-        // app.doTest();
+        app.doTest();
     }
 
     public static long random(long min, long max) {
@@ -124,6 +124,7 @@ public class BootTest {
             poller1.stop();
 
             joinAll(executor);
+            sender.printStatistics();
             printStatistics(poller0, poller1);
 
         } finally {
