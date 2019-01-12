@@ -2,11 +2,8 @@ package com.bocsoft.bfw.queue.demo;
 
 import com.bocsoft.bfw.queue.QConsumer;
 import com.bocsoft.bfw.queue.QConsumerRecord;
-import com.bocsoft.bfw.queue.QConsumerRecords;
-import com.bocsoft.bfw.queue.QPoller;
 import com.bocsoft.bfw.queue.QRecordHandler;
 
-import java.time.Duration;
 import java.util.Calendar;
 
 /**
