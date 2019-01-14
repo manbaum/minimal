@@ -91,14 +91,14 @@ public class BootTest {
 
     public void printStatistics(QPoller<?, ?, ?>... pollers) {
         for (QPoller<?, ?, ?> poller : pollers) {
-            final BootRecordHandler handler = (BootRecordHandler) poller.getHandler();
+            final BootRecordHandler handler = (BootRecordHandler) poller.getRecordHandler();
             handler.printStatistics();
         }
     }
 
     private QPoller<Integer, String, Object> createPoller(QConsumer<Integer, String> consumer) {
         final QPoller<Integer, String, Object> poller = new QPoller<>(consumer, null);
-        poller.setHandler(new BootRecordHandler(consumer.topic(), consumer.partition()));
+        poller.setRecordHandler(new BootRecordHandler(consumer.topic(), consumer.partition()));
         poller.setErrorHandler(new BootErrorHandler());
         return poller;
     }
