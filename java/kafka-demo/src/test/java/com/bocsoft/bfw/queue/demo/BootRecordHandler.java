@@ -12,7 +12,7 @@ import java.util.Calendar;
  * @author manbaum
  * @since Jan 11, 2019
  */
-public class BootRecordHandler implements QRecordHandler<String, String, Object> {
+public class BootRecordHandler implements QRecordHandler<Integer, String, Object> {
 
     private final String topicPartition;
 
@@ -28,7 +28,7 @@ public class BootRecordHandler implements QRecordHandler<String, String, Object>
     }
 
     @Override
-    public void process(QConsumerRecord<String, String> record, Object context) {
+    public void process(QConsumerRecord<Integer, String> record, Object context) {
         final String latency = updateStatistics(record);
         System.out.println(record + " " + topicPartition + " " + latency);
     }

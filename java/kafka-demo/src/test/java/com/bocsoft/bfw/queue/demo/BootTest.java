@@ -19,24 +19,24 @@ import java.util.concurrent.TimeUnit;
  */
 public class BootTest {
 
-    private QProducerFactory<String, String> producerFactory;
-    private QConsumerFactory<String, String> consumerFactory;
+    private QProducerFactory<Integer, String> producerFactory;
+    private QConsumerFactory<Integer, String> consumerFactory;
     private String topic;
     private ExecutorService executor;
 
-    public QProducerFactory<String, String> getProducerFactory() {
+    public QProducerFactory<Integer, String> getProducerFactory() {
         return producerFactory;
     }
 
-    public void setProducerFactory(QProducerFactory<String, String> producerFactory) {
+    public void setProducerFactory(QProducerFactory<Integer, String> producerFactory) {
         this.producerFactory = producerFactory;
     }
 
-    public QConsumerFactory<String, String> getConsumerFactory() {
+    public QConsumerFactory<Integer, String> getConsumerFactory() {
         return consumerFactory;
     }
 
-    public void setConsumerFactory(QConsumerFactory<String, String> consumerFactory) {
+    public void setConsumerFactory(QConsumerFactory<Integer, String> consumerFactory) {
         this.consumerFactory = consumerFactory;
     }
 
@@ -96,17 +96,17 @@ public class BootTest {
         }
     }
 
-    private QPoller<String, String, Object> createPoller(QConsumer<String, String> consumer) {
-        final QPoller<String, String, Object> poller = new QPoller<>(consumer, null);
+    private QPoller<Integer, String, Object> createPoller(QConsumer<Integer, String> consumer) {
+        final QPoller<Integer, String, Object> poller = new QPoller<>(consumer, null);
         poller.setHandler(new BootRecordHandler(consumer.topic(), consumer.partition()));
         poller.setErrorHandler(new BootErrorHandler());
         return poller;
     }
 
     public void doTest() {
-        final QConsumer<String, String> consumer0 = consumerFactory.create(topic, 0);
-        final QConsumer<String, String> consumer1 = consumerFactory.create(topic, 1);
-        final QProducer<String, String> producer = producerFactory.create(topic);
+        final QConsumer<Integer, String> consumer0 = consumerFactory.create(topic, 0);
+        final QConsumer<Integer, String> consumer1 = consumerFactory.create(topic, 1);
+        final QProducer<Integer, String> producer = producerFactory.create(topic);
 
         try {
             final QPoller<?, ?, ?> poller0 = createPoller(consumer0);

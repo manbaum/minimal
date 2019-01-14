@@ -11,11 +11,11 @@ import com.bocsoft.bfw.queue.QProducer;
  */
 public class BootSender implements Runnable {
 
-    private final QProducer<String, String> producer;
+    private final QProducer<Integer, String> producer;
     private volatile boolean shouldStop = false;
     private int count = 0;
 
-    public BootSender(QProducer<String, String> producer) {
+    public BootSender(QProducer<Integer, String> producer) {
         this.producer = producer;
     }
 
@@ -26,9 +26,9 @@ public class BootSender implements Runnable {
     @Override
     public void run() {
         while (!shouldStop) {
-            String message = "message(" + count + ")";
-            producer.send(null, message);
-            System.out.println("+++ Record produced: " + message + ".");
+            String message = "message(" + count + "-" + BootTest.random(1000L, 10000L) + ")";
+            producer.send(count, message);
+            System.out.println("+++ Record produced: key = " + count + ", value = " + message + ".");
             ++count;
             BootTest.sleep(BootTest.random(0L, 20L));
         }
