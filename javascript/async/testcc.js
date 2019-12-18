@@ -1,4 +1,3 @@
-
 "use strict"
 
 var u2 = require("uglify-js");
@@ -66,7 +65,7 @@ var find_callcc = function(expression) {
 };
 
 var make_callcc = function(st, lambda, rest) {
-	rest.unshift(st.transform(new u2.TreeTransformer(null, function(node){
+	rest.unshift(st.transform(new u2.TreeTransformer(null, function(node) {
 		if (node instanceof u2.AST_Call && node.expression.name == "callcc") {
 			return new u2.AST_SymbolVar({
 				name: "$value$"
@@ -169,7 +168,9 @@ var body_transform = function(body) {
 			new_body.push(st);
 		}
 	});
-	new_body.unshift(new u2.AST_Var({ definitions: var_defs });
+	new_body.unshift(new u2.AST_Var({
+		definitions: var_defs
+	}));
 	return callcc_transform(new_body);
 };
 
@@ -205,13 +206,17 @@ var find_all_callccs = function(st, callccs) {
 var make_callcc = function(body, i, st, callccs) {
 	var ast = null;
 	var cc_body = do_transform(make_cc_body(body, i, st));
-	callccs.forEach(function(callcc, j) {				
+	callccs.forEach(function(callcc, j) {
 		let expr = callcc.expression;
 		let lambda = callcc.args ? do_transform(callcc.args[0]) : null;
 		let context = callcc.args ? do_transform(callcc.args[1]) : null;
 		let argnames = [
-			new u2.AST_SymbolVar({ name: "$error" + j + "$" }),
-			new u2.AST_SymbolVar({ name: "$value" + j + "$" })
+			new u2.AST_SymbolVar({
+				name: "$error" + j + "$"
+			}),
+			new u2.AST_SymbolVar({
+				name: "$value" + j + "$"
+			})
 		];
 		if (ast) {
 			let cps = new u2.AST_Function({
@@ -239,11 +244,13 @@ var make_callcc = function(body, i, st, callccs) {
 var make_cc_body = function(body, i, st) {
 	let rest = body.splice(i + 1, body.length - i - 1);
 	let j = 0;
-	rest.unshift(st.transform(new u2.TreeTransformer(null, function(node){
+	rest.unshift(st.transform(new u2.TreeTransformer(null, function(node) {
 		if (node instanceof u2.AST_Call) {
 			let name = node.expression.name;
-			if (name  == "callcc" || name == "callcc4c") {
-				return new u2.AST_SymbolVar({ name: "$value" + (j++) + "$" });
+			if (name == "callcc" || name == "callcc4c") {
+				return new u2.AST_SymbolVar({
+					name: "$value" + (j++) + "$"
+				});
 			}
 		}
 	})));
@@ -252,15 +259,19 @@ var make_cc_body = function(body, i, st) {
 };
 
 var make_throw = function(j) {
-	let error = new u2.AST_SymbolVar({ name: "$error" + j + "$" });
+	let error = new u2.AST_SymbolVar({
+		name: "$error" + j + "$"
+	});
 	return new u2.AST_If({
 		condition: error,
-		body: new u2.AST_Throw({ value: error })
+		body: new u2.AST_Throw({
+			value: error
+		})
 	});
 };
 
 var usecallcc = function(f) {
-	let code  = "(" + f.toString() + ")";
+	let code = "(" + f.toString() + ")";
 	console.log(code);
 	let ast = u2.parse(code);
 	let new_ast = do_transform(ast);
@@ -290,8 +301,7 @@ var _test_cc2_aot = function() {
 		});
 	}, null, function(error0, value0) {
 		if (error0) throw error0;
-		callcc(function(cc) {
-		}, null, function(error1, value1) {
+		callcc(function(cc) {}, null, function(error1, value1) {
 			a = value0 + value1;
 			print("a = " + a);
 		});

@@ -15,14 +15,13 @@ const toInteger = value => {
 		return (number > 0 ? 1 : -1) * Math.trunc(Math.abs(number));
 	}
 };
-const toLength = value => {
-	let len = toInteger(value);
-	return Math.min(Math.max(len, 0), Number.MAX_SAFE_INTEGER);
+const clampInteger = (min, max) => value => {
+	let number = toInteger(value);
+	return Math.min(Math.max(number, min), max);
 };
-const toIndex = value => {
-	let len = toInteger(value);
-	return Math.min(Math.max(len, Number.MIN_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
-}
+const toLength = clampInteger(0, Number.MAX_SAFE_INTEGER);
+const toIndex = clampInteger(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+
 const isRegExp = x => x != null && x.constructor === RegExp;
 
 const forceArrayGet = array => {
@@ -378,6 +377,23 @@ D(G)
 			}
 			return y;
 		},
+		xfold: (cb, thisArg) => (initVal, temp = initVal) => xgen => {
+			let y = initVal,
+				t = temp,
+				i = 0;
+			for (let x of xgen) {
+				[y, t] = cb.call(thisArg, y, x, t, i++, xgen);
+			}
+			return y;
+		},
+		xfold1: (cb, thisArg) => xgen => {
+			let y, i = 0;
+			for (let x of xgen) {
+				[y, t] = i == 0 ? [x, x] : cb.call(thisArg, y, x, t, i, xgen);
+				++i;
+			}
+			return y;
+		},
 		reduce(cb, initVal) {
 			return arguments.length < 2 ? G.fold1(cb) : G.fold(cb)(initVal);
 		},
@@ -394,6 +410,24 @@ D(G)
 			let y, i = 0;
 			for (let x of xgen) {
 				y = i == 0 ? x : cb.call(thisArg, y, x, i, xgen);
+				++i;
+				yield y;
+			}
+		},
+		xscan: (cb, thisArg) => (initVal, temp = initVal, yieldInitVal = true) => function*(xgen) {
+			let y = initVal,
+				t = temp,
+				i = 0;
+			if (yieldInitVal) yield y;
+			for (let x of xgen) {
+				[y, t] = cb.call(thisArg, y, x, t, i++, xgen);
+				yield y;
+			}
+		},
+		xscan1: (cb, thisArg) => function*(xgen) {
+			let y, t, i = 0;
+			for (let x of xgen) {
+				[y, t] = i == 0 ? [x, x] : cb.call(thisArg, y, x, t, i, xgen);
 				++i;
 				yield y;
 			}
@@ -585,7 +619,7 @@ D(Array.prototype)
 		setLength(n) {
 			this.length = toLength(n);
 		},
-		fill(xgen, retainLength) {
+		fillBy(xgen, retainLength) {
 			return G.fill(this, retainLength)(xgen);
 		},
 		fillWith(cb, thisArg) {
@@ -650,6 +684,12 @@ D(G.prototype)
 		fold1(cb, thisArg) {
 			return G.fold1(cb, thisArg)(this);
 		},
+		xfold(cb, thisArg) {
+			return (initVal, temp = initVal) => G.xfold(cb, thisArg)(initVal, temp)(this);
+		},
+		xfold1(cb, thisArg) {
+			return G.xfold1(cb, thisArg)(this);
+		},
 		reduce(cb, initVal) {
 			return arguments.length < 2 ? G.fold1(cb)(this) : G.fold(cb)(initVal)(this);
 		},
@@ -658,6 +698,12 @@ D(G.prototype)
 		},
 		scan1(cb, thisArg) {
 			return G.scan1(cb, thisArg)(this);
+		},
+		xscan(cb, thisArg) {
+			return (initVal, temp = initVal, yieldInitVal = true) => G.xscan(cb, thisArg)(initVal, temp, yieldInitVal)(this);
+		},
+		xscan1(cb, thisArg) {
+			return G.xscan1(cb, thisArg)(this);
 		},
 		take(count) {
 			return G.take(count)(this);

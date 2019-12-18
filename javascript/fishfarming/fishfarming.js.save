@@ -1,0 +1,302 @@
+"use strict"
+
+const {
+	println,
+	xprintln,
+	debug,
+	debug2,
+	fix
+} = require("./common");
+const G = require("./generator");
+const U = require("./util");
+
+const nat = G.nat;
+const tri = U.trinum;
+
+const F = {
+	Unknown: 0x00,
+	ToBe: 0x01,
+	NotToBe: 0x02,
+	Subject: 0x03,
+	Description: 0x04,
+
+	Given: 0x10,
+	Supposed: 0x20,
+	Deduced: 0x30
+};
+
+const Game = class {
+	constructor(termStrArray) {
+		const terms = termStrArray.map(Game.parse);
+		const numOfTerms = terms.length;
+		const numOfValues = terms[0].values.length;
+		const numOfRows = numOfTerms * numOfValues;
+		const numOfCells = S.natSum(numOfTerms - 1) * (numOfValues * numOfValues);
+		const words = G.nat(numOfCells)
+			.map(Game.decomposeIndex)
+			.filter(o => this.termdeindex(o.row).iterm != this.termdeindex(o.col).iterm)
+			.reduce(
+				(m, o) => {
+					m[this.mkmsg(o.row, o.col, F.Is)] = m[this.mkmsg(o.col, o.row, F.Is)] = o;
+					return m;
+				}, {});
+
+		Object.assign(this, {
+			terms,
+			numOfTerms,
+			numOfValues,
+			numOfRows,
+			numOfCells,
+			table: new Uint8Array(numOfCells),
+			words
+		});
+
+		this.terms = terms;
+		this.numOfTerms = numOfTerms;
+		this.numOfValues = numOfValues;
+		this.numOfRows = numOfRows;
+		this.numOfCells = numOfCells;
+		this.table = new Uint8Array(numOfCells);
+		this.words = ;
+	}
+	static parse(s, i) {
+		console.log(`${i}: ${s}`);
+		const term = {},
+			a = s.split(/\//),
+			a2 = a[2],
+			a3 = a[3],
+			values = a[1].split(/,/).map(
+				t => {
+					const u = t.split(/:/);
+					return {
+						simple: u[0],
+						full: u[u.length - 1]
+					};
+				});
+		console.dir(values);
+		const term = {
+			i,
+			name: a[0],
+			values,
+			subject(i) {
+				return a2.replace(/\$/g, values[i].full);
+			},
+			predicate(i) {
+				return a3.replace(/\$/g, values[i].full);
+			}
+		};
+		return term;
+	}
+	static deindex(i) {
+		const row = S.antidiag(i),
+			col = i - S.natsum(row);
+		return {
+			i,
+			row,
+			col
+		};
+	}
+	static mkindex({
+		row,
+		col
+	}) {
+		return row >= col ? S.natsum(row) + col : S.natsum(col) + row;
+	}
+	termdeindex(n) {
+		const a = S.div(n, this.nvalue);
+		return {
+			n,
+			iterm: a.quot,
+			ivalue: a.rem
+		};
+	}
+	termmkindex({
+		iterm,
+		ivalue
+	}) {
+		return item * this.nvalue + ivalue;
+	}
+	static prefix(flag) {
+		switch (flag & 0xf0) {
+			case F.Given:
+				return "已知";
+			case F.Supposed:
+				return "假设";
+			case F.Deduced:
+				return "可推出";
+			default:
+				return "";
+		}
+	}
+	desc(iterm, ivalue, flag) {
+		const term = this.terms[iterm];
+		switch (flag & 0x0f) {
+			case F.Unknown:
+				return "是否会" + term.predicate(ivalue) + "呢？";
+			case F.Is:
+				return term.predicate(ivalue);
+			case F.IsNot:
+				return "不可能" + term.predicate(ivalue);
+			case F.Subject:
+				return Game.prefix(flag) + term.subject(ivalue);
+			case F.Description:
+				return term.subject(ivalue);
+			default:
+				return term.subject(ivalue);
+		}
+	}
+	mkmsg(row, col, flag) {
+		if (row == col) {
+			const {
+				iterm,
+				ivalue
+			} = this.termdeindex(row);
+			return this.desc(iterm, ivalue, F.Description);
+		} else {
+			const i = Game.mkindex(row, col),
+				f = flag || this.table[i] || F.Unknown;
+			const {
+				iterm: siterm,
+				ivalue: sivalue
+			} = this.termdeindex(row);
+			const {
+				iterm: piterm,
+				ivalue: pivalue
+			} = this.termdeindex(col);
+			const s = this.desc(siterm, sivalue, (f & 0xf0) + F.Subject);
+			const p = this.desc(piterm, pivalue, f & 0x0f);
+			return s + p;
+		}
+	}
+	msg(i, flag, reverse) {
+		const {
+			row,
+			col
+		} = Game.deindex(i);
+		return reverse ? this.mkmsg(row, col, flag) : this.mkmsg(col, row, flag);
+	}
+	suppose(w) {
+		const o = this.words[w];
+		if (o) {
+			return `Ok, ${this.msg(o.i, F.Supposed + F.Is)}`;
+		} else {
+			return `你说啥？${w}？`;
+		}
+	}
+};
+
+// 	const norm_msg = (o, p, q) => o.xn == o.yn ? lookup(o.ix, 3) : lookup(o.ix, (p > 0 ? q : 0) + 3) + lookup(o.iy, p);
+// 	const revr_msg = (o, p, q) => o.yn == o.xn ? lookup(o.iy, 3) : lookup(o.iy, (p > 0 ? q : 0) + 3) + lookup(o.ix, p);
+// 	const msg = (i, rev, p) => (rev ? revr_msg : norm_msg)(typeof i === "object" ? i : at(i), (p || b[i] || 0) % 10, Math.floor((p || b[i] || 0) / 10) * 10);
+
+// 	const suppose = (w, assert) => {
+// 		const o = words[w];
+// 		if (o !== undefined) {
+// 			b[o.i] = assert ? 1 : 21;
+// 			return `Ok, ${msg(o, false, assert ? 11 : 21)}。`;
+// 		} else {
+// 			return `你说啥？${w}？`;
+// 		}
+// 	};
+// 	const collis = o => {
+// 		const {
+// 			i,
+// 			xn,
+// 			yn,
+// 			ix,
+// 			iy
+// 		} = typeof o === "object" ? o : at(o);
+// 		return nat(sz).map(yn => norm(xn, yn)).map(p => Object.assign(p, at(from(p))))
+// 			.filter(p => p.i != i && b[p.i] > 0)
+// 			.group(p => b[p.i] < 10 ? 0 : 1, []);
+// 	};
+// 	const join = a => {
+// 		const ia = typeof a === "object" ? a : at(a);
+// 		return b => {
+// 			const ib = typeof b === "object" ? b : at(b);
+// 		};
+// 	};
+// 	const deduce = (o, p) => {
+// 		const w = typeof o === "object" ? o : at(o),
+// 			{
+// 				i,
+// 				xn,
+// 				yn,
+// 				ix,
+// 				iy
+// 			} = w;
+// 		const [cs0, cs1] = colls(o);
+// 		cs0.forEach()
+// 	};
+// 	return {
+// 		nx,
+// 		ny,
+// 		sz,
+// 		nz,
+// 		at,
+// 		from,
+// 		norm,
+// 		msg,
+// 		collis,
+// 		suppose,
+// 		deduce,
+// 		b(i) {
+// 			return b[i];
+// 		}
+// 	};
+// }
+// };
+
+// nat(15).map(i => {
+// 	const t = tri(i);
+// 	return nat(i + 1, true).map(i => fix(3)(t - i)).toArray().join(",");
+// }).forEach(println);
+// nat(15).map(i => {
+// 	const t = tri(i);
+// 	return nat(i % 5 + 1, true).map(i => fix(3)(t - i)).toArray().join(",");
+// }).forEach(println);
+
+// nat(K.sz).map(i => {
+// 	const t = tri(i);
+// 	return nat(i + 1, true).map(i => fix(3)(t - i)).toArray().join(",");
+// }).forEach(println);
+// nat(K.sz).map(xn => nat(K.sz).map(yn => K.mk(xn, yn)).map(fix(3)).toArray().join(",")).forEach(println);
+
+K = new Game([
+	`房号/01,02,03,04,05/住$号房子的人/住$号房子`,
+	`国家/英:英国,瑞:瑞典,丹:丹麦,挪:挪威,德:德国/$人/是$人`,
+	`颜色/红,蓝,绿,黄,白/$色房子主人/住$色房子`,
+	`饮料/茶,咖:咖啡,啤:啤酒,奶:牛奶,水/喝$的人/喝$`,
+	`香烟/PM:PallMall,DU:Dunhill,BM:BlueMaster,BL:Blends,PR:Prince/抽$香烟的人/抽$香烟`,
+	`宠物/狗,猫,鸟,马,鱼/养$的人/养$`
+]);
+[
+	"英国人住红色房子",
+	"瑞典人养狗",
+	"丹麦人喝茶",
+	"绿色房子主人喝咖啡",
+	"抽PallMall香烟的人养鸟",
+	"黄色房子主人抽Dunhill香烟",
+	"抽BlueMaster香烟的人喝啤酒",
+	"德国人抽Prince香烟"
+].forEach(s => println(K.suppose(s, true)));
+
+nat(15).map(i => {
+	const t = tri(i);
+	return nat(i + 1, true).map(i => K.b[t - i] || 0).toArray().join(",");
+}).forEach(println);
+nat(15).map(i => {
+	const t = tri(i);
+	return nat(i % 5 + 1, true).map(i => K.b[t - i] || 0).toArray().join(",");
+}).forEach(println);
+
+nat(15).map(i => {
+	const t = tri(i);
+	return nat(i % 5 + 1, true).map(i => K.at(t - i)).map(o => fix(2)(o.xn) + fix(2)(o.yn)).toArray().join(",");
+}).forEach(println);
+
+nat(15).map(i => Object.assign(K.at(i), {
+	from: K.from(K.at(i))
+})).toArray();
+
+nat(K.nz).map(K.at).map(o => (o.from = K.from(o), o)).filter(o => o.i != o.from).forEach(println);

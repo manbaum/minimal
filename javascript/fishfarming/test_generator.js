@@ -3,6 +3,10 @@
 const D = require("./property"),
 	G = require("./generator");
 
+prime = n => n < 3 ? G.of(2) : G.concat(G.of(2), G.iterate(i => i + 2)(3).takeWhile(i => i <= n).filter(i => (q => G.iterate(i => i + 2)(3).takeWhile(i => i <= q))(Math.floor(Math.sqrt(i))).every(j => i % j != 0)));
+watch = f => (begin => (_ => Date.now() - begin)(f()))(Date.now());
+f = n => m => G.iterate(_ => watch(_ => prime(n).forEach(_ => _)))(0, 0).take(m).reduce((x, y) => x + y) / m;
+
 const expect = msg => x => y => {
 	if (x != y) throw new Error(msg + `, expect ${x} but ${y}`);
 };
